@@ -29,7 +29,6 @@ async function getKitsuTitle(kitsuId) {
     } catch (e) { console.error("[SubAlchemy] Kitsu Error:", e.message); return null; }
 }
 
-// Fetch movie title from Cinemeta so web archives can search by name
 async function getCinemetaTitle(imdbId, type) {
     try {
         const metaType = type === 'series' ? 'series' : 'movie';
@@ -66,9 +65,9 @@ async function searchWyzie({ imdbId, query, apiKey }) {
     try {
         const response = await axios.get('https://api.wyziesubs.dev/v1/subs', {
             params: { imdb: imdbId, title: query },
-            timeout: 5000 // 5 seconds timeout to prevent hanging if server is offline
+            timeout: 5000
         });
-        if (response.data) {
+        if (response.data && Array.isArray(response.data)) {
             return response.data.map(sub => ({
                 url: sub.url,
                 fileName: sub.filename || "unknown.vtt",
@@ -82,23 +81,6 @@ async function searchWyzie({ imdbId, query, apiKey }) {
     }
 }
 
-async function searchBetaSeries({ query, apiKey, languages }) {
-    if (!apiKey || !query) return [];
-    try {
-        const response = await axios.get('https://api.betaseries.com/subtitles/shows', {
-            params: { v: 3.0, client_id: apiKey, title: query, languages: languages }
-        });
-        if (response.data.subtitles) {
-            return response.data.subtitles.map(sub => ({
-                url: sub.file.url,
-                fileName: sub.file.name || "unknown.srt",
-                lang: normalizeLang(sub.language)
-            }));
-        }
-        return [];
-    } catch (e) { console.error("[SubAlchemy] BetaSeries Error:", e.response?.status || e.message); return []; }
-}
-
 async function searchAnimeTosho({ query }) {
     if (!query) return [];
     try {
@@ -107,17 +89,20 @@ async function searchAnimeTosho({ query }) {
             headers: { 'User-Agent': 'Mozilla/5.0' }
         });
         const subs = [];
-        response.data.forEach(entry => {
-            if (entry.attachments) {
-                entry.attachments.forEach(att => {
-                    if (att.type === 'subtitle') {
-                        subs.push({ url: att.link, fileName: att.name || "unknown.ass", lang: normalizeLang(att.lang || 'eng') });
-                    }
-                });
-            }
-        });
+        // Ensure response.data is an array before iterating
+        if (Array.isArray(response.data)) {
+            response.data.forEach(entry => {
+                if (entry.attachments) {
+                    entry.attachments.forEach(att => {
+                        if (att.type === 'subtitle') {
+                            subs.push({ url: att.link, fileName: att.name || "unknown.ass", lang: normalizeLang(att.lang || 'eng') });
+                        }
+                    });
+                }
+            });
+        }
         return subs;
     } catch (e) { console.error("[SubAlchemy] AnimeTosho Error:", e.message); return []; }
 }
 
-module.exports = { normalizeLang, getKitsuTitle, getCinemetaTitle, searchSubDL, searchSubSource, searchWyzie, searchBetaSeries, searchAnimeTosho };
+module.exports = { normalizeLang, getKitsuTitle, getCinemetaTitle, searchSubDL, searchSubSource, searchWyzie, searchAnimeTosho };

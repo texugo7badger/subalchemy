@@ -9,8 +9,9 @@ const AdmZip = require('adm-zip');
 
 // Import modules
 const { vttToSrt, assToSrt, removeAds } = require('./src/converters');
-const { getKitsuTitle, getCinemetaTitle, searchSubDL, searchSubSource, searchWyzie, searchBetaSeries, searchAnimeTosho } = require('./src/sources');
-const { searchYify, searchPodnapisi, searchSubf2m, searchGestdown, searchTVsubtitles, searchOpenArchive } = require('./src/openarchive');
+const { getKitsuTitle, getCinemetaTitle, searchSubDL, searchSubSource, searchWyzie, searchAnimeTosho } = require('./src/sources');
+// Scrapers are kept in the repo for local hosting, but disabled in cloud to prevent Cloudflare 403 timeouts
+// const { searchYify, searchPodnapisi, searchSubf2m, searchGestdown, searchTVsubtitles, searchOpenArchive } = require('./src/openarchive');
 const { getConfigureHTML } = require('./src/configurePage');
 
 // ==========================================
@@ -27,10 +28,10 @@ const subtitlesCache = new Map();
 // ==========================================
 const manifest = {
     id: "org.subalchemy.addon",
-    version: "1.1.2",
+    version: "1.1.3",
     name: "SubAlchemy",
     logo: `${BASE_URL}/subalchemy-logo.png`,
-    description: "Universal SRT Converter. Fetches from APIs and Web Archives, supports Anime, and converts VTT/ASS/ZIP to SRT.",
+    description: "Universal SRT Converter. Fetches from cloud-friendly APIs, supports Anime, and converts VTT/ASS/ZIP to SRT.",
     resources: ["subtitles"],
     types: ["movie", "series"],
     idPrefixes: ["tt", "kitsu"],
@@ -40,7 +41,6 @@ const manifest = {
         { key: 'subdlApiKey', type: 'string', title: 'SubDL API Key', default: process.env.SUBDL_API_KEY || '' },
         { key: 'subsourceApiKey', type: 'string', title: 'SubSource API Key', default: process.env.SUBSOURCE_API_KEY || '' },
         { key: 'wyzieApiKey', type: 'string', title: 'Wyzie API Key', default: process.env.WYZIE_API_KEY || '' },
-        { key: 'betaseriesApiKey', type: 'string', title: 'BetaSeries API Key', default: process.env.BETASERIES_API_KEY || '' },
         { key: 'languages', type: 'string', title: 'Languages', default: 'en,pt-br,es,fr,de,it,ja,zh,ru,ar,hi,ko' }
     ]
 };
@@ -70,40 +70,26 @@ builder.defineSubtitlesHandler(async ({ id, type, config }) => {
     const apiKeys = {
         subdlApiKey: config?.subdlApiKey || process.env.SUBDL_API_KEY,
         subsourceApiKey: config?.subsourceApiKey || process.env.SUBSOURCE_API_KEY,
-        wyzieApiKey: config?.wyzieApiKey || process.env.WYZIE_API_KEY,
-        betaseriesApiKey: config?.betaseriesApiKey || process.env.BETASERIES_API_KEY
+        wyzieApiKey: config?.wyzieApiKey || process.env.WYZIE_API_KEY
     };
     const languages = config?.languages || 'en,pt-br,es,fr,de,it,ja,zh,ru,ar,hi,ko';
 
     console.log(`[SubAlchemy] Searching multiple sources...`);
 
-    const [archiveSubs, subdlSubs, subsourceSubs, wyzieSubs, bsSubs, animeToshoSubs, yifySubs, podnapisiSubs, subf2mSubs, gestdownSubs, tvsubsSubs] = await Promise.all([
-        searchOpenArchive(imdbId),
+    // Only using APIs to avoid Cloudflare 403 blocks on Render
+    const [subdlSubs, subsourceSubs, wyzieSubs, animeToshoSubs] = await Promise.all([
         searchSubDL({ imdbId, query: searchQuery, apiKey: apiKeys.subdlApiKey, languages }),
         searchSubSource({ query: searchQuery, apiKey: apiKeys.subsourceApiKey }),
         searchWyzie({ imdbId, query: searchQuery, apiKey: apiKeys.wyzieApiKey }),
-        searchBetaSeries({ query: searchQuery, apiKey: apiKeys.betaseriesApiKey, languages }),
-        searchAnimeTosho({ query: searchQuery }),
-        searchYify(imdbId),
-        searchPodnapisi(searchQuery),
-        searchSubf2m(searchQuery),
-        searchGestdown(searchQuery),
-        searchTVsubtitles(searchQuery)
+        searchAnimeTosho({ query: searchQuery })
     ]);
 
-    console.log(`[SubAlchemy] Results -> OpenArchive: ${archiveSubs.length}`);
     console.log(`[SubAlchemy] Results -> SubDL: ${subdlSubs.length}`);
     console.log(`[SubAlchemy] Results -> SubSource: ${subsourceSubs.length}`);
     console.log(`[SubAlchemy] Results -> Wyzie: ${wyzieSubs.length}`);
-    console.log(`[SubAlchemy] Results -> BetaSeries: ${bsSubs.length}`);
     console.log(`[SubAlchemy] Results -> AnimeTosho: ${animeToshoSubs.length}`);
-    console.log(`[SubAlchemy] Results -> YIFY: ${yifySubs.length}`);
-    console.log(`[SubAlchemy] Results -> Podnapisi: ${podnapisiSubs.length}`);
-    console.log(`[SubAlchemy] Results -> Subf2m: ${subf2mSubs.length}`);
-    console.log(`[SubAlchemy] Results -> Gestdown: ${gestdownSubs.length}`);
-    console.log(`[SubAlchemy] Results -> TVsubtitles: ${tvsubsSubs.length}`);
 
-    const allSubs = [...archiveSubs, ...subdlSubs, ...subsourceSubs, ...wyzieSubs, ...bsSubs, ...animeToshoSubs, ...yifySubs, ...podnapisiSubs, ...subf2mSubs, ...gestdownSubs, ...tvsubsSubs];
+    const allSubs = [...subdlSubs, ...subsourceSubs, ...wyzieSubs, ...animeToshoSubs];
     const uniqueUrls = new Set();
     const uniqueSubs = allSubs.filter(sub => {
         if (uniqueUrls.has(sub.url)) return false;
@@ -194,8 +180,6 @@ app.get('/test-api', async (req, res) => {
     try {
         if (type === 'subdl') {
             await axios.get('https://api.subdl.com/api/v1/subtitles?imdb_id=tt0111161', { params: { api_key: key.trim() } });
-        } else if (type === 'betaseries') {
-            await axios.get('https://api.betaseries.com/subtitles/shows?v=3.0&client_id=' + key.trim() + '&title=test');
         }
         res.json({ valid: true });
     } catch (e) {

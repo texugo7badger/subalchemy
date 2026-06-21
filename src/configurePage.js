@@ -91,15 +91,6 @@ function getConfigureHTML(baseUrl) {
         </div>
 
         <div class="form-group">
-            <label>BetaSeries API Key <span class="tooltip">?<span class="tooltiptext">Excellent for French and TV Series subtitles.</span></span></label>
-            <div class="input-wrapper">
-                <input type="text" id="betaseriesApiKey" placeholder="Enter your API Key">
-                <button class="test-btn" onclick="testAPI('betaseries')">Test</button>
-            </div>
-            <a href="https://www.betaseries.com/api/" target="_blank" class="link">Get BetaSeries API Key</a>
-        </div>
-
-        <div class="form-group">
             <label>Preferred Languages (Max 3)</label>
             <div class="tags-container" id="selectedLangs"></div>
             <input type="text" id="langSearch" placeholder="Search languages..." oninput="filterLangs()">
@@ -111,13 +102,7 @@ function getConfigureHTML(baseUrl) {
         <div class="sources-section">
             <h3>Active Free Sources (No Config Required)</h3>
             <div class="sources-logos">
-                <div class="source-badge"><span class="dot"></span>OpenSubtitles</div>
                 <div class="source-badge"><span class="dot"></span>AnimeTosho</div>
-                <div class="source-badge"><span class="dot"></span>Yifysubtitles</div>
-                <div class="source-badge"><span class="dot"></span>Subf2m</div>
-                <div class="source-badge"><span class="dot"></span>Podnapisi</div>
-                <div class="source-badge"><span class="dot"></span>Gestdown</div>
-                <div class="source-badge"><span class="dot"></span>TVsubtitles</div>
             </div>
         </div>
 
@@ -139,9 +124,8 @@ function getConfigureHTML(baseUrl) {
             const subdlKey = document.getElementById('subdlApiKey').value.trim();
             const subsourceKey = document.getElementById('subsourceApiKey').value.trim();
             const wyzieKey = document.getElementById('wyzieApiKey').value.trim();
-            const betaseriesKey = document.getElementById('betaseriesApiKey').value.trim();
             const langs = selectedLangs.join(',');
-            const manifestUrl = '${baseUrl}/manifest.json?subdlApiKey=' + encodeURIComponent(subdlKey) + '&subsourceApiKey=' + encodeURIComponent(subsourceKey) + '&wyzieApiKey=' + encodeURIComponent(wyzieKey) + '&betaseriesApiKey=' + encodeURIComponent(betaseriesKey) + '&languages=' + encodeURIComponent(langs);
+            const manifestUrl = '${baseUrl}/manifest.json?subdlApiKey=' + encodeURIComponent(subdlKey) + '&subsourceApiKey=' + encodeURIComponent(subsourceKey) + '&wyzieApiKey=' + encodeURIComponent(wyzieKey) + '&languages=' + encodeURIComponent(langs);
             window.location.href = 'stremio://' + manifestUrl.replace('https://', '').replace('http://', '');
         }
         renderTags();
