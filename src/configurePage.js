@@ -126,7 +126,9 @@ function getConfigureHTML(baseUrl) {
             const wyzieKey = document.getElementById('wyzieApiKey').value.trim();
             const langs = selectedLangs.join(',');
             const manifestUrl = '${baseUrl}/manifest.json?subdlApiKey=' + encodeURIComponent(subdlKey) + '&subsourceApiKey=' + encodeURIComponent(subsourceKey) + '&wyzieApiKey=' + encodeURIComponent(wyzieKey) + '&languages=' + encodeURIComponent(langs);
-            window.location.href = 'stremio://' + manifestUrl.replace('https://', '').replace('http://', '');
+            
+            // CORREÇÃO: Usar a URL completa sem remover o protocolo HTTPS
+            window.location.href = 'stremio://' + manifestUrl;
         }
         renderTags();
     </script>
