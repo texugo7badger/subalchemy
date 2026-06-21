@@ -25,8 +25,8 @@ const subtitlesCache = new Map();
 // MANIFEST
 // ==========================================
 const manifest = {
-    id: "org.subalchemy.addon",
-    version: "1.1.6",
+    id: "org.subalchemy.v112",
+    version: "1.1.7",
     name: "SubAlchemy",
     logo: `${BASE_URL}/subalchemy-logo.png`,
     description: "Universal SRT Converter. Fetches from cloud-friendly APIs, supports Anime, and converts VTT/ASS/ZIP to SRT.",
@@ -51,7 +51,7 @@ const builder = new addonBuilder(manifest);
 builder.defineSubtitlesHandler(async ({ id, type, config }) => {
     console.log(`\n[SubAlchemy] =========================================`);
     console.log(`[SubAlchemy] Request received for: ${id}`);
-    console.log(`[SubAlchemy] FULL CONFIG RECEIVED:`, JSON.stringify(config)); // Log entire config object
+    console.log(`[SubAlchemy] FULL CONFIG RECEIVED:`, JSON.stringify(config));
     
     let imdbId = null;
     let searchQuery = null;
