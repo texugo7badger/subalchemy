@@ -77,12 +77,27 @@ function installAddon() {
     const wyzieKey = document.getElementById('wyzieApiKey').value.trim();
     const langs = selectedLangs.join(',');
     
-    // Usa window.location.origin para garantir que a URL base nunca seja undefined
+    // Cria o objeto de configuração
+    const configObj = {
+        subdlApiKey: subdlKey,
+        subsourceApiKey: subsourceKey,
+        wyzieApiKey: wyzieKey,
+        languages: langs
+    };
+    
+    // Remove chaves vazias para manter a URL limpa
+    Object.keys(configObj).forEach(k => (configObj[k] === '' || configObj[k] === null) && delete configObj[k]);
+    
+    // Codifica o objeto JSON para colocar na URL
+    const configStr = encodeURIComponent(JSON.stringify(configObj));
     const baseUrl = window.location.origin;
-    const manifestUrl = baseUrl + '/manifest.json?subdlApiKey=' + encodeURIComponent(subdlKey) + '&subsourceApiKey=' + encodeURIComponent(subsourceKey) + '&wyzieApiKey=' + encodeURIComponent(wyzieKey) + '&languages=' + encodeURIComponent(langs);
+    const manifestUrl = `${baseUrl}/${configStr}/manifest.json`;
     
     window.location.href = 'stremio://' + manifestUrl.replace('https://', '').replace('http://', '');
 }
+
+// Initialize on load
+renderTags();
 
 // Initialize on load
 renderTags();

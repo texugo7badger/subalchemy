@@ -1,5 +1,3 @@
-const { log } = require('./logger');
-
 function parseConfigParam(raw) {
   if (!raw) return { config: {} };
   
@@ -21,6 +19,12 @@ function parseConfigParam(raw) {
   }
 
   if (!config || typeof config !== 'object') config = {};
+  
+  // Ensure languages is an array
+  if (config.languages && typeof config.languages === 'string') {
+    config.languages = config.languages.split(',');
+  }
+  
   return { config };
 }
 

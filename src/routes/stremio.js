@@ -3,6 +3,7 @@ const { generateManifest } = require('../../manifest');
 const { handleSubtitlesRequest } = require('../handlers/subtitles');
 const { registerDefaultProviders } = require('../providers');
 const { log } = require('../logger');
+const { parseConfigParam } = require('../config');
 
 registerDefaultProviders();
 const router = express.Router();
@@ -13,18 +14,33 @@ function setStremioHeaders(res) {
     res.setHeader('Cache-Control', 'max-age=86400, public');
 }
 
-// Manifest com Query Params (ex: /manifest.json?subdlApiKey=123)
+// Rota raiz (Stremio acessa aqui quando não tem config. Exige configuração)
 router.get('/manifest.json', (req, res) => {
-  const config = req.query;
   setStremioHeaders(res);
-  res.json(generateManifest(config));
+  const manifest = generateManifest({});
+  manifest.behaviorHints.configurationRequired = true;
+  res.json(manifest);
 });
 
-// Rota de Legendas
-router.get('/subtitles/:type/:id/:extra?.json', async (req, res) => {
+// Rota COM configuração (Stremio acessa aqui depois de instalar)
+router.get('/:config/manifest.json', (req, res) => {
+  const { config } = parseConfigParam(req.params.config);
+  const manifest = generateManifest(config);
+  
+  // Se tem config, não é mais necessário configurar!
+  if (config && Object.keys(config).length > 0) {
+    delete manifest.behaviorHints.configurationRequired;
+  }
+  
+  setStremioHeaders(res);
+  res.json(manifest);
+});
+
+// Rota de Legendas COM configuração
+router.get('/:config/subtitles/:type/:id/:extra?.json', async (req, res) => {
   setStremioHeaders(res);
   try {
-    const config = req.query;
+    const { config } = parseConfigParam(req.params.config);
     config._userAgent = req.headers['user-agent'] || '';
     
     const args = {

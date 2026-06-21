@@ -1,7 +1,7 @@
 const packageJson = require('./package.json');
 
 function generateManifest(config = {}) {
-  const languages = config.languages ? config.languages.split(',') : [];
+  const languages = config.languages ? (Array.isArray(config.languages) ? config.languages : config.languages.split(',')) : [];
   const langDisplay = languages.length > 0 ? ` (${languages.join(', ')})` : '';
   
   return {
@@ -16,8 +16,8 @@ function generateManifest(config = {}) {
     idPrefixes: ["tt", "kitsu"],
     catalogs: [],
     behaviorHints: {
-      configurable: true,
-      configurationRequired: true
+      configurable: true
+      // configurationRequired é adicionado/removido dinamicamente na rota
     },
     config: [
       { key: 'subdlApiKey', type: 'string', title: 'SubDL API Key (Optional)', default: process.env.SUBDL_API_KEY || '' },
