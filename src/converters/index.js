@@ -14,15 +14,15 @@ async function convertToSrt(sub) {
   try {
     let downloadUrl = sub.url;
     
-    // Garante URL absoluta para SubDL
-    if (downloadUrl.includes('subdl.com') && !downloadUrl.startsWith('https://subdl.com')) {
-       downloadUrl = 'https://subdl.com' + new URL(downloadUrl).pathname + new URL(downloadUrl).search;
+    // Garante URL absoluta (caso algum provider ainda mande relativo)
+    if (downloadUrl.includes('subdl.com') && !downloadUrl.startsWith('https://')) {
+       downloadUrl = 'https://dl.subdl.com' + new URL(downloadUrl).pathname + new URL(downloadUrl).search;
     }
 
     const urlObj = new URL(downloadUrl);
     const referer = urlObj.origin + '/';
     
-    // Usa o proxy WARP se for URL do OpenSubtitles para evitar 403 no download
+    // Usa o proxy WARP se for URL do OpenSubtitles
     const agent = OS_DIRECT_URL_RE.test(downloadUrl) ? warpAgent : null;
 
     const response = await axios.get(downloadUrl, { 
@@ -54,8 +54,10 @@ async function convertToSrt(sub) {
     if (!srtContent) return null;
     return removeAds(srtContent);
   } catch (e) {
-    log('error', `[Converters] Failed to process ${sub.url}: ${e.message}`);
-    return null;
+    // Logar como warn para não poluir como erro fatal, pois links expiram
+    const statusCode = e.response?.status || 'Unknown';
+    log('warn', `[Converters] Skipping ${sub.url}: Failed with status ${statusCode}`);
+    return null; // Retorna null para que o handler pule esta legenda
   }
 }
 module.exports = { convertToSrt };
