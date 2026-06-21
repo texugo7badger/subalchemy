@@ -7,7 +7,12 @@ mkdir -p /run/dbus
 dbus-daemon --system --nofork &
 sleep 2
 
-echo "Starting Cloudflare WARP..."
+echo "Starting Cloudflare WARP Daemon..."
+# Inicia o serviço do WARP em background
+warp-svc &
+sleep 3
+
+echo "Configuring Cloudflare WARP..."
 # Registra o cliente WARP (silenciosamente)
 warp-cli registration new || true
 # Define o modo proxy (SOCKS5 na porta 40000)
