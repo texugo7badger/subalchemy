@@ -36,8 +36,8 @@ router.get('/:config/manifest.json', (req, res) => {
   res.json(manifest);
 });
 
-// Rota de Legendas COM configuração
-router.get('/:config/subtitles/:type/:id/:extra?.json', async (req, res) => {
+// Handler unificado para as rotas de legendas
+const subtitlesHandler = async (req, res) => {
   setStremioHeaders(res);
   try {
     const { config } = parseConfigParam(req.params.config);
@@ -46,7 +46,7 @@ router.get('/:config/subtitles/:type/:id/:extra?.json', async (req, res) => {
     const args = {
       type: req.params.type,
       id: req.params.id,
-      extra: req.params.extra
+      extra: req.params.extra || ''
     };
     
     const result = await handleSubtitlesRequest(args, config);
@@ -55,6 +55,12 @@ router.get('/:config/subtitles/:type/:id/:extra?.json', async (req, res) => {
     log('error', `[StremioRoute] Subtitles error: ${err.message}`);
     res.json({ subtitles: [] });
   }
-});
+};
+
+// Rota de Legendas SEM extra (ex: /config/subtitles/movie/tt123.json)
+router.get('/:config/subtitles/:type/:id.json', subtitlesHandler);
+
+// Rota de Legendas COM extra (ex: /config/subtitles/movie/tt123/extra.json)
+router.get('/:config/subtitles/:type/:id/:extra.json', subtitlesHandler);
 
 module.exports = router;
