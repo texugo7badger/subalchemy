@@ -11,7 +11,7 @@ const crypto = require('crypto');
 async function handleSubtitlesRequest(args, config) {
   const { id, type } = args;
   const parsed = parseStremioId(id);
-  const userAgent = args._userAgent || '';
+  const userAgent = config._userAgent || '';
   
   let searchQuery = null;
   if (parsed.kitsuId) {
@@ -22,10 +22,20 @@ async function handleSubtitlesRequest(args, config) {
     log('info', `[Handler] IMDB ID: ${parsed.imdbId}. Cinemeta Title: ${searchQuery}`);
   }
 
+  // Garante que languages seja sempre um Array
+  let languages = ['en'];
+  if (config.languages) {
+    if (Array.isArray(config.languages)) {
+      languages = config.languages;
+    } else if (typeof config.languages === 'string') {
+      languages = config.languages.split(',').map(l => l.trim()).filter(Boolean);
+    }
+  }
+
   const query = {
     ...parsed,
     searchQuery,
-    languages: config.languages ? config.languages.split(',') : ['en'],
+    languages: languages,
     apiKeys: {
       subdlApiKey: config.subdlApiKey,
       subsourceApiKey: config.subsourceApiKey,
@@ -67,5 +77,4 @@ async function handleSubtitlesRequest(args, config) {
   
   return { subtitles: finalSubs };
 }
-
 module.exports = { handleSubtitlesRequest };
