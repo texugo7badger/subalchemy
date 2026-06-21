@@ -8,11 +8,17 @@ const { log } = require('../logger');
 
 async function convertToSrt(sub) {
   try {
-    // Define o Referer com base no domínio da URL
-    const urlObj = new URL(sub.url);
+    let downloadUrl = sub.url;
+    
+    // CORREÇÃO: Garantir que o SubDL use o domínio principal
+    if (downloadUrl.includes('subdl.com') && !downloadUrl.startsWith('https://subdl.com')) {
+       downloadUrl = 'https://subdl.com' + new URL(downloadUrl).pathname + new URL(downloadUrl).search;
+    }
+
+    const urlObj = new URL(downloadUrl);
     const referer = urlObj.origin + '/';
 
-    const response = await axios.get(sub.url, { 
+    const response = await axios.get(downloadUrl, { 
       responseType: 'arraybuffer',
       timeout: 10000,
       headers: { 

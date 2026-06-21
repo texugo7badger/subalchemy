@@ -9,14 +9,18 @@ class WyzieProvider extends BaseProvider {
   }
 
   async search(query) {
-    if (!query.imdbId && !query.searchQuery) return { subtitles: [] };
-    
-    const params = {};
+    const apiKey = query.apiKeys?.wyzieApiKey;
+    // CORREÇÃO: Wyzie agora requer API Key
+    if (!apiKey) {
+      log('warn', '[Wyzie] API Key is required.');
+      return { subtitles: [] };
+    }
+
+    const params = { key: apiKey }; // Adiciona a chave aqui
     if (query.imdbId) params.imdb = query.imdbId;
     if (query.searchQuery) params.title = query.searchQuery;
 
     try {
-      // CORREÇÃO: Domínio correto do Wyzie
       const response = await axios.get('https://sub.wyzie.io/api/v1/subs', { params, timeout: 8000 });
       if (!Array.isArray(response.data)) return { subtitles: [] };
 

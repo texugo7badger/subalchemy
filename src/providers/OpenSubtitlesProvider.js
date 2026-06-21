@@ -1,6 +1,6 @@
 const { BaseProvider, SubtitleResult } = require('./BaseProvider');
 const { log } = require('../logger');
-const { OS_BASE, THROTTLE_MS } = require('../constants');
+const { THROTTLE_MS } = require('../constants');
 const { normalizeLang } = require('../languages');
 const axios = require('axios');
 
@@ -24,13 +24,16 @@ class OpenSubtitlesProvider extends BaseProvider {
       searchPath += `/sublanguageid-${normalizeLang(query.languages[0])}`;
     }
 
-    const url = `${OS_BASE}${searchPath}`;
-    log('debug', `[OpenSubtitles] Fetching: ${url}`);
+    // CORREÇÃO: Usar um proxy CORS para mascarar o IP do Render
+    const targetUrl = `https://rest.opensubtitles.org${searchPath}`;
+    const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`;
+    
+    log('debug', `[OpenSubtitles] Fetching via proxy: ${proxyUrl}`);
     
     await this._throttle();
     
     try {
-      const response = await axios.get(url, {
+      const response = await axios.get(proxyUrl, {
         headers: { 
           'X-User-Agent': 'VLSub 0.10.3', 
           'Accept': 'application/json' 
