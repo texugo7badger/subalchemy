@@ -14,14 +14,30 @@ const LANG_MAP = {
   'ko': 'kor', 'korean': 'kor'
 };
 
+const LANG_NAMES = {
+  'pob': 'Portuguese (Brazil)',
+  'por': 'Portuguese',
+  'eng': 'English',
+  'spa': 'Spanish',
+  'fra': 'French',
+  'deu': 'German',
+  'ita': 'Italian',
+  'jpn': 'Japanese',
+  'zho': 'Chinese',
+  'zht': 'Chinese (Traditional)',
+  'rus': 'Russian',
+  'ara': 'Arabic',
+  'hin': 'Hindi',
+  'kor': 'Korean'
+};
+
 function normalizeLang(lang) {
   if (!lang) return 'eng';
   return LANG_MAP[lang.toLowerCase()] || lang;
 }
 
-function toAlpha2(code) {
-  const entry = Object.entries(LANG_MAP).find(([, v]) => v === code);
-  return entry ? entry[0] : code;
+function getLanguageName(code) {
+  return LANG_NAMES[code] || code.toUpperCase();
 }
 
-module.exports = { normalizeLang, toAlpha2 };
+module.exports = { normalizeLang, getLanguageName };

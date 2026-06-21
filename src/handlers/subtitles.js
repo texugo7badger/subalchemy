@@ -6,6 +6,7 @@ const { getCinemetaTitle } = require('../meta/cinemeta');
 const { getKitsuTitle } = require('../meta/kitsu');
 const { log } = require('../logger');
 const { OS_DIRECT_URL_RE } = require('../constants');
+const { normalizeLang, getLanguageName } = require('../languages'); // Importa getLanguageName
 const crypto = require('crypto');
 
 async function handleSubtitlesRequest(args, config, baseUrl) {
@@ -22,19 +23,22 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
     log('info', `[Handler] IMDB ID: ${parsed.imdbId}. Cinemeta Title: ${searchQuery}`);
   }
 
-  let languages = ['en'];
+  // Normaliza os idiomas solicitados pelo usuário
+  let requestedLangs = ['eng'];
   if (config.languages) {
+    let langArray = [];
     if (Array.isArray(config.languages)) {
-      languages = config.languages;
+      langArray = config.languages;
     } else if (typeof config.languages === 'string') {
-      languages = config.languages.split(',').map(l => l.trim()).filter(Boolean);
+      langArray = config.languages.split(',').map(l => l.trim()).filter(Boolean);
     }
+    requestedLangs = langArray.map(normalizeLang);
   }
 
   const query = {
     ...parsed,
     searchQuery,
-    languages: languages,
+    languages: requestedLangs, // Envia a lista normalizada para os providers
     apiKeys: {
       subdlApiKey: config.subdlApiKey,
       subsourceApiKey: config.subsourceApiKey,
@@ -43,15 +47,30 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   };
 
   const { subtitles } = await providerManager.searchAll(query);
-  log('info', `[Handler] Found ${subtitles.length} unique subtitles. Starting conversion...`);
+  log('info', `[Handler] Found ${subtitles.length} total subtitles before language filter.`);
 
-  const subtitlesPromises = subtitles.map(async (sub) => {
+  // FILTRO RIGOROSO: Garante que apenas os idiomas solicitados passem
+  const filteredSubs = subtitles.filter(sub => {
+    const subLang = normalizeLang(sub.language);
+    return requestedLangs.includes(subLang);
+  });
+
+  log('info', `[Handler] Found ${filteredSubs.length} unique subtitles after language filter. Starting conversion...`);
+
+  const subtitlesPromises = filteredSubs.map(async (sub) => {
     try {
       let finalUrl = sub.url;
+      const langName = getLanguageName(sub.language);
+      const subName = `SubAlchemy SRT [${langName}]`;
       
       // If it's an OpenSubtitles URL and client is Stremio, let Stremio's streaming server handle it
       if (OS_DIRECT_URL_RE.test(sub.url) && isStremioClient(userAgent)) {
-        return { id: sub.id, url: `http://127.0.0.1:11470/subtitles.srt?from=${encodeURIComponent(sub.url)}`, lang: sub.language };
+        return { 
+          id: sub.id, 
+          url: `http://127.0.0.1:11470/subtitles.srt?from=${encodeURIComponent(sub.url)}`, 
+          lang: sub.language,
+          name: subName 
+        };
       }
 
       // Otherwise, download, convert to SRT, cache, and serve via proxy
@@ -61,12 +80,15 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
         
         const subId = crypto.createHash('md5').update(sub.url).digest('hex').slice(0, 20);
         subtitleStore.set(subId, { content: srtContent, lang: sub.language });
-        // CORREÇÃO: Usar a baseUrl dinâmica recebida da rota
         finalUrl = `${baseUrl}/srt/${subId}.srt`;
       }
 
-      // CORREÇÃO: Retornar o campo 'id' que o Stremio exige
-      return { id: sub.id, url: finalUrl, lang: sub.language };
+      return { 
+        id: sub.id, 
+        url: finalUrl, 
+        lang: sub.language,
+        name: subName 
+      };
     } catch (e) {
       log('error', `[Handler] Processing error for ${sub.url}: ${e.message}`);
       return null;
