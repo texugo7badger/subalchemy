@@ -8,7 +8,7 @@ function generateManifest(config = {}) {
     id: "org.subalchemy.addon",
     version: packageJson.version,
     name: "SubAlchemy",
-    logo: "https://raw.githubusercontent.com/texugo7badger/subalchemy/main/subalchemy-logo.png",
+    logo: `${process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 7000}`}/assets/subalchemy-logo.png`,
     description: `Universal SRT Converter for Tizen 9 & Anime${langDisplay}. Fetches from multiple sources and converts VTT/ASS/ZIP to SRT.`,
     resources: ["subtitles"],
     types: ["movie", "series"],
