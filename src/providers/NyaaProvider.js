@@ -58,10 +58,10 @@ class NyaaProvider extends BaseProvider {
                 allSubs.push(new SubtitleResult({
                     id: `nyaasi-${subId}`,
                     url: finalUrl,
-                    language: normalizeLang(sub.language),
+                    language: normalizeLang(sub.language) || 'eng',
                     source: 'NyaaSI',
                     fileName: sub.fileName,
-                    releaseName: torrent.title, // Nome do release para aparecer no Stremio
+                    releaseName: torrent.title,
                     format: sub.format,
                     needsConversion: sub.format !== 'srt'
                 }));

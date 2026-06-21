@@ -32,12 +32,17 @@ const LANG_NAMES = {
 };
 
 function normalizeLang(lang) {
-  if (!lang) return 'eng';
-  return LANG_MAP[lang.toLowerCase()] || lang;
+  if (!lang) return null;
+  return LANG_MAP[lang.toLowerCase()] || lang.toLowerCase();
 }
 
 function getLanguageName(code) {
   return LANG_NAMES[code] || code.toUpperCase();
 }
 
-module.exports = { normalizeLang, getLanguageName };
+function isPortuguese(langCode) {
+    const normalized = normalizeLang(langCode);
+    return ['pob', 'por', 'pb', 'pt'].includes(normalized);
+}
+
+module.exports = { normalizeLang, getLanguageName, isPortuguese };

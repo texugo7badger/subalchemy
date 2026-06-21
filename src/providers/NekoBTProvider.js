@@ -47,10 +47,10 @@ class NekoBTProvider extends BaseProvider {
           allSubs.push(new SubtitleResult({
             id: `nekobt-${subId}`,
             url: finalUrl,
-            language: normalizeLang(sub.language),
+            language: normalizeLang(sub.language) || 'eng',
             source: 'NekoBT',
             fileName: sub.fileName,
-            releaseName: torrent.title, // Nome do release
+            releaseName: torrent.title,
             format: sub.format,
             needsConversion: sub.format !== 'srt'
           }));

@@ -6,7 +6,7 @@ const { getCinemetaTitle } = require('../meta/cinemeta');
 const { getKitsuTitle } = require('../meta/kitsu');
 const { log } = require('../logger');
 const { OS_DIRECT_URL_RE } = require('../constants');
-const { normalizeLang, getLanguageName } = require('../languages');
+const { normalizeLang, getLanguageName, isPortuguese } = require('../languages');
 const crypto = require('crypto');
 
 async function handleSubtitlesRequest(args, config, baseUrl) {
@@ -31,7 +31,7 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
     } else if (typeof config.languages === 'string') {
       langArray = config.languages.split(',').map(l => l.trim()).filter(Boolean);
     }
-    requestedLangs = langArray.map(normalizeLang);
+    requestedLangs = langArray.map(normalizeLang).filter(Boolean);
   }
 
   const query = {
@@ -48,16 +48,18 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   const { subtitles } = await providerManager.searchAll(query);
   log('info', `[Handler] Found ${subtitles.length} total subtitles before language filter.`);
 
-  const ptVariations = ['pob', 'por', 'pb', 'pt', 'pt-br', 'ptbr', 'portuguese', 'português'];
+  const userWantsPt = requestedLangs.some(isPortuguese);
+  const userWantsEn = requestedLangs.includes('eng');
+
   const filteredSubs = subtitles.filter(sub => {
-    const subLang = normalizeLang(sub.language).toLowerCase();
+    const subLang = normalizeLang(sub.language);
+    if (!subLang) return false; // Ignora se não conseguir identificar o idioma
     
-    if (requestedLangs.some(r => ptVariations.includes(r))) {
-        if (ptVariations.includes(subLang)) return true;
-    }
-    if (requestedLangs.includes('eng') && (subLang === 'eng' || subLang === 'en')) return true;
+    if (userWantsPt && isPortuguese(subLang)) return true;
+    if (userWantsEn && subLang === 'eng') return true;
+    if (requestedLangs.includes(subLang)) return true;
     
-    return requestedLangs.includes(subLang);
+    return false;
   });
 
   log('info', `[Handler] Found ${filteredSubs.length} unique subtitles after language filter. Starting conversion...`);
@@ -67,11 +69,9 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
       let finalUrl = sub.url;
       const langName = getLanguageName(sub.language) || sub.language || 'Unknown';
       
-      // Formata o nome para aparecer perfeitamente no Stremio
       const displayName = sub.releaseName || sub.fileName || 'Unknown';
       const subName = `SubAlchemy [${langName}] - ${displayName}`;
 
-      // Se a URL já aponta para o nosso proxy (caso Nyaa/NekoBT), converte o conteúdo bruto
       if (sub.url.includes('/srt/')) {
         const subId = sub.url.split('/srt/')[1].replace('.srt', '');
         const cached = subtitleStore.get(subId);
