@@ -25,8 +25,8 @@ const subtitlesCache = new Map();
 // MANIFEST
 // ==========================================
 const manifest = {
-    id: "org.subalchemy.v112",
-    version: "1.1.7",
+    id: "org.subalchemy.addon",
+    version: "1.1.8",
     name: "SubAlchemy",
     logo: `${BASE_URL}/subalchemy-logo.png`,
     description: "Universal SRT Converter. Fetches from cloud-friendly APIs, supports Anime, and converts VTT/ASS/ZIP to SRT.",
@@ -34,7 +34,10 @@ const manifest = {
     types: ["movie", "series"],
     idPrefixes: ["tt", "kitsu"],
     catalogs: [],
-    behaviorHints: { configurable: true, configurationRequired: false },
+    behaviorHints: { 
+        configurable: true, 
+        configurationRequired: true // Forces Stremio to block installation until the user configures their keys
+    },
     config: [
         { key: 'subdlApiKey', type: 'string', title: 'SubDL API Key', default: process.env.SUBDL_API_KEY || '' },
         { key: 'subsourceApiKey', type: 'string', title: 'SubSource API Key', default: process.env.SUBSOURCE_API_KEY || '' },
