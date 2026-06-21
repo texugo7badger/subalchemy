@@ -10,8 +10,6 @@ const AdmZip = require('adm-zip');
 // Import modules
 const { vttToSrt, assToSrt, removeAds } = require('./src/converters');
 const { getKitsuTitle, getCinemetaTitle, searchSubDL, searchSubSource, searchWyzie, searchAnimeTosho } = require('./src/sources');
-// Scrapers are kept in the repo for local hosting, but disabled in cloud to prevent Cloudflare 403 timeouts
-// const { searchYify, searchPodnapisi, searchSubf2m, searchGestdown, searchTVsubtitles, searchOpenArchive } = require('./src/openarchive');
 const { getConfigureHTML } = require('./src/configurePage');
 
 // ==========================================
@@ -28,7 +26,7 @@ const subtitlesCache = new Map();
 // ==========================================
 const manifest = {
     id: "org.subalchemy.addon",
-    version: "1.1.3",
+    version: "1.1.5",
     name: "SubAlchemy",
     logo: `${BASE_URL}/subalchemy-logo.png`,
     description: "Universal SRT Converter. Fetches from cloud-friendly APIs, supports Anime, and converts VTT/ASS/ZIP to SRT.",
@@ -56,13 +54,23 @@ builder.defineSubtitlesHandler(async ({ id, type, config }) => {
     
     let imdbId = null;
     let searchQuery = null;
+    let season = null;
+    let episode = null;
     
     if (id.startsWith('kitsu:')) {
         const kitsuId = id.split(':')[1];
         searchQuery = await getKitsuTitle(kitsuId);
         console.log(`[SubAlchemy] Kitsu Anime detected. Search query: ${searchQuery}`);
     } else {
-        imdbId = id.split(':')[0];
+        const idParts = id.split(':');
+        imdbId = idParts[0];
+        
+        if (idParts.length === 3) {
+            season = idParts[1];
+            episode = idParts[2];
+            console.log(`[SubAlchemy] Series detected -> Season: ${season}, Episode: ${episode}`);
+        }
+        
         searchQuery = await getCinemetaTitle(imdbId, type);
         console.log(`[SubAlchemy] IMDB ID detected: ${imdbId}. Cinemeta Title: ${searchQuery}`);
     }
@@ -72,13 +80,19 @@ builder.defineSubtitlesHandler(async ({ id, type, config }) => {
         subsourceApiKey: config?.subsourceApiKey || process.env.SUBSOURCE_API_KEY,
         wyzieApiKey: config?.wyzieApiKey || process.env.WYZIE_API_KEY
     };
+    
+    // Log to prove if the key is arriving from Stremio
+    console.log(`[SubAlchemy] Config -> SubDL Key exists: ${!!apiKeys.subdlApiKey}`);
+    if (apiKeys.subdlApiKey) {
+        console.log(`[SubAlchemy] Config -> SubDL Key (first 5 chars): ${apiKeys.subdlApiKey.substring(0, 5)}`);
+    }
+
     const languages = config?.languages || 'en,pt-br,es,fr,de,it,ja,zh,ru,ar,hi,ko';
 
     console.log(`[SubAlchemy] Searching multiple sources...`);
 
-    // Only using APIs to avoid Cloudflare 403 blocks on Render
     const [subdlSubs, subsourceSubs, wyzieSubs, animeToshoSubs] = await Promise.all([
-        searchSubDL({ imdbId, query: searchQuery, apiKey: apiKeys.subdlApiKey, languages }),
+        searchSubDL({ imdbId, query: searchQuery, apiKey: apiKeys.subdlApiKey, languages, season, episode }),
         searchSubSource({ query: searchQuery, apiKey: apiKeys.subsourceApiKey }),
         searchWyzie({ imdbId, query: searchQuery, apiKey: apiKeys.wyzieApiKey }),
         searchAnimeTosho({ query: searchQuery })
