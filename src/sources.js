@@ -40,14 +40,19 @@ async function searchOpenSubtitles({ imdbId, query, type, apiKey, languages }) {
     
     try {
         const response = await axios.get('https://api.opensubtitles.com/api/v1/subtitles', {
-            headers: { 'Apikey': apiKey, 'User-Agent': 'SubAlchemy v1.0.0' }, params
+            headers: { 
+                'Apikey': apiKey.trim(),
+                // Usando User-Agent de navegador para evitar bloqueios do OpenSubtitles
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }, 
+            params 
         });
         return response.data.data.map(sub => ({
             url: sub.attributes.files[0].file_url,
             fileName: sub.attributes.files[0].file_name || "",
             lang: normalizeLang(sub.attributes.language)
         }));
-    } catch (e) { console.error("[SubAlchemy] OS Error:", e.response?.status || e.message); return []; }
+    } catch (e) { console.error("[SubAlchemy] OS Error:", e.response?.status, e.response?.data?.message || e.message); return []; }
 }
 
 async function searchSubDL({ imdbId, query, apiKey, languages }) {
@@ -71,7 +76,6 @@ async function searchSubDL({ imdbId, query, apiKey, languages }) {
 
 async function searchSubSource({ query, apiKey }) {
     if (!apiKey || !query) return [];
-    // Add SubSource API logic here when available
     return [];
 }
 
@@ -97,7 +101,7 @@ async function searchAnimeTosho({ query }) {
     try {
         const response = await axios.get('https://animetosho.org/search/api', {
             params: { q: query },
-            headers: { 'User-Agent': 'SubAlchemy v1.0.0' }
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
         });
         
         const subs = [];

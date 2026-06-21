@@ -4,7 +4,7 @@ const { addonBuilder, getRouter } = require('stremio-addon-sdk');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-const express = require('express'); // Importando Express
+const express = require('express');
 
 // Import modules
 const { vttToSrt, assToSrt, removeAds } = require('./src/converters');
@@ -25,7 +25,7 @@ const subtitlesCache = new Map();
 // ==========================================
 const manifest = {
     id: "org.subalchemy.addon",
-    version: "1.0.2",
+    version: "1.0.7",
     name: "SubAlchemy",
     description: "Universal SRT Converter. Fetches from multiple sources, supports Anime (Kitsu), and converts VTT/ASS to SRT.",
     resources: ["subtitles"],
@@ -155,14 +155,21 @@ app.get('/test-api', async (req, res) => {
     try {
         if (type === 'os') {
             await axios.get('https://api.opensubtitles.com/api/v1/subtitles?imdb_id=tt0111161', {
-                headers: { 'Apikey': key, 'User-Agent': 'SubAlchemy v1.0.2' }
+                headers: { 
+                    'Apikey': key.trim(),
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
             });
         } else if (type === 'subdl') {
-            await axios.get('https://api.subdl.com/api/v1/subtitles?imdb_id=tt0111161', { params: { api_key: key } });
+            await axios.get('https://api.subdl.com/api/v1/subtitles?imdb_id=tt0111161', { params: { api_key: key.trim() } });
         } 
         res.json({ valid: true });
     } catch (e) {
-        res.json({ valid: false });
+        const status = e.response?.status;
+        const message = e.response?.data?.message || e.message;
+        console.error(`[SubAlchemy] Test API Error (${type}):`, status, message);
+        // Retorna o erro para a tela mostrar ao usuário
+        res.json({ valid: false, error: `Error ${status || ''}: ${message}` });
     }
 });
 

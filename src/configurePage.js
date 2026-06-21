@@ -162,7 +162,7 @@ function getConfigureHTML(baseUrl) {
     <div class="container">
         <img src="/subalchemy-logo.png" alt="SubAlchemy Logo" class="logo">
         <h1>SubAlchemy</h1>
-        <p class="subtitle">Universal SRT Converter for Tizen 9</p>
+        <p class="subtitle">Universal SRT Converter for Tizen 9 & Anime</p>
         <p class="description">For the best experience across all your devices, we recommend configuring this addon with the same API keys you use in <a href="https://stremio-addons.net/addons/subsense" target="_blank">SubSense</a>.</p>
         
         <div class="form-group">
@@ -227,7 +227,7 @@ function getConfigureHTML(baseUrl) {
 
         <div class="donation">
             <p>Did this magic solve your TV's subtitle problem? ✨<br>If you can, buy me a coffee to keep the cauldron bubbling!</p>
-            <a href='https://ko-fi.com/G4H521S5GK' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
+            <a href='https://ko-fi.com/G4H521S5GK' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi5.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
         </div>
     </div>
 
@@ -292,8 +292,16 @@ function getConfigureHTML(baseUrl) {
             try {
                 const res = await fetch('/test-api?type=' + type + '&key=' + key);
                 const data = await res.json();
-                if (data.valid) { btn.innerText = 'Valid!'; btn.className = 'test-btn valid'; }
-                else { btn.innerText = 'Invalid!'; btn.className = 'test-btn invalid'; }
+                if (data.valid) { 
+                    btn.innerText = 'Valid!'; 
+                    btn.className = 'test-btn valid'; 
+                } else { 
+                    // Se tiver erro do servidor, mostra no botão
+                    const errText = data.error ? data.error.substring(0, 12) : 'Invalid!';
+                    btn.innerText = errText; 
+                    btn.title = data.error || 'Invalid API Key';
+                    btn.className = 'test-btn invalid'; 
+                }
             } catch (e) { btn.innerText = 'Error!'; btn.className = 'test-btn invalid'; }
         }
 
