@@ -1,6 +1,6 @@
 const { BaseProvider, SubtitleResult } = require('./BaseProvider');
 const { log } = require('../logger');
-const { extractSubs, normalizeLanguage } = require('../utils/subtitleUtils');
+const { extractSubtitles } = require('../utils/subtitleExtractor');
 const subtitleStore = require('../cache/SubtitleStore');
 const crypto = require('crypto');
 const axios = require('axios');
@@ -22,8 +22,13 @@ class NyaaProvider extends BaseProvider {
     const torrents = [];
     $('item').slice(0, 5).each((i, el) => {
       const title = $(el).find('title').text();
+      // Nyaa RSS não expõe magnet direto, mas expõe o link da página. Precisamos do infoHash.
       const link = $(el).find('link').text();
-      if (link) torrents.push({ title, link });
+      const infoHash = $(el).find('infoHash').text(); // Disponível no RSS do Nyaa
+      if (infoHash) {
+        const magnet = `magnet:?xt=urn:btih:${infoHash}&dn=${encodeURIComponent(title)}&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce`;
+        torrents.push({ title, magnet });
+      }
     });
     return torrents;
   }
@@ -48,22 +53,14 @@ class NyaaProvider extends BaseProvider {
     }
 
     const allSubs = [];
-    for (const torrent of torrents.slice(0, 3)) {
+    for (const torrent of torrents.slice(0, 2)) { // Limita a 2 torrents para não estourar tempo
       try {
-        log('info', `[NyaaSI] Downloading torrent file: ${torrent.title}`);
-        const torrentRes = await axios.get(torrent.link, { 
-          responseType: 'arraybuffer', 
-          timeout: 8000,
-          headers: { 'User-Agent': 'Mozilla/5.0' } 
-        });
-        const torrentBuffer = Buffer.from(torrentRes.data);
-        
-        log('info', `[NyaaSI] Extracting subs from: ${torrent.title}`);
-        const extractedSubs = await extractSubs(torrentBuffer);
+        log('info', `[NyaaSI] Streaming torrent: ${torrent.title}`);
+        const extractedSubs = await extractSubtitles(torrent.magnet, query.languages, 45000);
         
         for (const sub of extractedSubs) {
-          const subId = crypto.createHash('md5').update(torrent.link + sub.fileName).digest('hex').slice(0, 20);
-          subtitleStore.set(subId, { content: sub.content, lang: sub.language || 'eng' });
+          const subId = crypto.createHash('md5').update(torrent.magnet + sub.trackNumber).digest('hex').slice(0, 20);
+          subtitleStore.set(subId, { content: sub.content, lang: sub.language });
           
           const baseUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 7000}`;
           const finalUrl = `${baseUrl}/srt/${subId}.srt`;
@@ -71,12 +68,12 @@ class NyaaProvider extends BaseProvider {
           allSubs.push(new SubtitleResult({
             id: `nyaasi-${subId}`,
             url: finalUrl,
-            language: normalizeLanguage(sub.language) || 'eng',
+            language: sub.language,
             source: 'NyaaSI',
-            fileName: sub.fileName,
+            fileName: `${torrent.title}.srt`,
             releaseName: torrent.title,
-            format: sub.format,
-            needsConversion: sub.format !== 'srt'
+            format: 'srt',
+            needsConversion: false
           }));
         }
       } catch (e) {

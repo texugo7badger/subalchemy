@@ -19,6 +19,7 @@
     "dotenv": "^17.4.2",
     "express": "^4.19.2",
     "iconv-lite": "^0.7.1",
+    "matroska-subtitles": "^3.3.2",
     "socks-proxy-agent": "^8.0.3",
     "stremio-addon-sdk": "^1.6.10",
     "subsrt-ts": "^2.1.2",

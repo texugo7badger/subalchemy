@@ -1,12 +1,12 @@
 const { parseStremioId, isStremioClient } = require('../utils');
 const { providerManager } = require('../providers');
-const { convertToSrt, convertRawToSrt } = require('../converters');
+const { convertToSrt } = require('../converters');
 const subtitleStore = require('../cache/SubtitleStore');
 const { getCinemetaTitle } = require('../meta/cinemeta');
 const { getKitsuTitle } = require('../meta/kitsu');
 const { log } = require('../logger');
 const { OS_DIRECT_URL_RE } = require('../constants');
-const { normalizeLanguage, getLanguageName, isPortuguese, generatePlaceholder } = require('../languages');
+const { normalizeLanguage, getLanguageName, isPortuguese, generatePlaceholder } = require('../utils/subtitleUtils');
 const crypto = require('crypto');
 
 async function handleSubtitlesRequest(args, config, baseUrl) {
@@ -91,16 +91,8 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
       let subName = `SubAlchemy [${langName}] - ${displayName}`;
       if (isFallback) subName += ' (Fallback)';
 
+      // Se a URL já aponta para o nosso proxy, não converte de novo
       if (sub.url.includes('/srt/')) {
-        const subId = sub.url.split('/srt/')[1].replace('.srt', '');
-        const cached = subtitleStore.get(subId);
-        
-        if (cached && sub.needsConversion) {
-          const srtContent = convertRawToSrt(cached.content, sub.format);
-          if (!srtContent) return null;
-          subtitleStore.set(subId, { content: srtContent, lang: sub.language });
-        }
-        
         return { id: sub.id, url: sub.url, lang: sub.language, name: subName };
       }
 

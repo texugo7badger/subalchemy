@@ -1,6 +1,6 @@
 const { BaseProvider, SubtitleResult } = require('./BaseProvider');
 const { log } = require('../logger');
-const { extractSubs, normalizeLanguage } = require('../utils/subtitleUtils');
+const { extractSubtitles } = require('../utils/subtitleExtractor');
 const subtitleStore = require('../cache/SubtitleStore');
 const crypto = require('crypto');
 const axios = require('axios');
@@ -48,13 +48,13 @@ class NekoBTProvider extends BaseProvider {
     }
 
     const allSubs = [];
-    for (const torrent of magnets.slice(0, 3)) {
-      log('info', `[NekoBT] Extracting subs from: ${torrent.title}`);
-      const extractedSubs = await extractSubs(torrent.magnet);
+    for (const torrent of magnets.slice(0, 2)) {
+      log('info', `[NekoBT] Streaming torrent: ${torrent.title}`);
+      const extractedSubs = await extractSubtitles(torrent.magnet, query.languages, 45000);
       
       for (const sub of extractedSubs) {
-        const subId = crypto.createHash('md5').update(torrent.magnet + sub.fileName).digest('hex').slice(0, 20);
-        subtitleStore.set(subId, { content: sub.content, lang: sub.language || 'eng' });
+        const subId = crypto.createHash('md5').update(torrent.magnet + sub.trackNumber).digest('hex').slice(0, 20);
+        subtitleStore.set(subId, { content: sub.content, lang: sub.language });
         
         const baseUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 7000}`;
         const finalUrl = `${baseUrl}/srt/${subId}.srt`;
@@ -62,12 +62,12 @@ class NekoBTProvider extends BaseProvider {
         allSubs.push(new SubtitleResult({
           id: `nekobt-${subId}`,
           url: finalUrl,
-          language: normalizeLanguage(sub.language) || 'eng',
+          language: sub.language,
           source: 'NekoBT',
-          fileName: sub.fileName,
+          fileName: `${torrent.title}.srt`,
           releaseName: torrent.title,
-          format: sub.format,
-          needsConversion: sub.format !== 'srt'
+          format: 'srt',
+          needsConversion: false
         }));
       }
     }
