@@ -1,6 +1,6 @@
 const { BaseProvider, SubtitleResult } = require('./BaseProvider');
 const { log } = require('../logger');
-const { extractSubs, normalizeLang } = require('../utils/subtitleUtils');
+const { extractSubs, normalizeLanguage } = require('../utils/subtitleUtils');
 const subtitleStore = require('../cache/SubtitleStore');
 const crypto = require('crypto');
 const axios = require('axios');
@@ -49,8 +49,11 @@ class NyaaProvider extends BaseProvider {
             const extractedSubs = await extractSubs(torrentBuffer);
             
             for (const sub of extractedSubs) {
+                // Fallback: se não detectou idioma, assume português em animes
+                const lang = sub.language || 'por';
+                
                 const subId = crypto.createHash('md5').update(torrent.link + sub.fileName).digest('hex').slice(0, 20);
-                subtitleStore.set(subId, { content: sub.content, lang: sub.language || 'eng' });
+                subtitleStore.set(subId, { content: sub.content, lang: lang });
                 
                 const baseUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 7000}`;
                 const finalUrl = `${baseUrl}/srt/${subId}.srt`;
@@ -58,7 +61,7 @@ class NyaaProvider extends BaseProvider {
                 allSubs.push(new SubtitleResult({
                     id: `nyaasi-${subId}`,
                     url: finalUrl,
-                    language: normalizeLang(sub.language) || 'eng',
+                    language: normalizeLanguage(lang),
                     source: 'NyaaSI',
                     fileName: sub.fileName,
                     releaseName: torrent.title,

@@ -1,6 +1,6 @@
 const LANG_MAP = {
-  'pt-br': 'pob', 'ptbr': 'pob', 'portuguese-brazil': 'pob', 'pb': 'pob',
-  'pt': 'por', 'portuguese': 'por',
+  'pt-br': 'por', 'ptbr': 'por', 'portuguese-brazil': 'por', 'pb': 'por',
+  'pt': 'por', 'portuguese': 'por', 'pob': 'por',
   'en': 'eng', 'english': 'eng',
   'es': 'spa', 'spanish': 'spa',
   'fr': 'fra', 'french': 'fra',
@@ -15,7 +15,6 @@ const LANG_MAP = {
 };
 
 const LANG_NAMES = {
-  'pob': 'Portuguese (Brazil)',
   'por': 'Portuguese',
   'eng': 'English',
   'spa': 'Spanish',
@@ -31,18 +30,24 @@ const LANG_NAMES = {
   'kor': 'Korean'
 };
 
-function normalizeLang(lang) {
+function normalizeLanguage(lang) {
   if (!lang) return null;
-  return LANG_MAP[lang.toLowerCase()] || lang.toLowerCase();
+  const normalized = lang.toLowerCase().trim();
+  return LANG_MAP[normalized] || normalized;
+}
+
+// Mantido para compatibilidade
+function normalizeLang(lang) {
+  return normalizeLanguage(lang) || 'eng';
 }
 
 function getLanguageName(code) {
-  return LANG_NAMES[code] || code.toUpperCase();
+  const norm = normalizeLanguage(code);
+  return LANG_NAMES[norm] || code.toUpperCase();
 }
 
 function isPortuguese(langCode) {
-    const normalized = normalizeLang(langCode);
-    return ['pob', 'por', 'pb', 'pt'].includes(normalized);
+  return normalizeLanguage(langCode) === 'por';
 }
 
-module.exports = { normalizeLang, getLanguageName, isPortuguese };
+module.exports = { normalizeLang, normalizeLanguage, getLanguageName, isPortuguese };
