@@ -76,7 +76,10 @@ function installAddon() {
     const subsourceKey = document.getElementById('subsourceApiKey').value.trim();
     const wyzieKey = document.getElementById('wyzieApiKey').value.trim();
     const langs = selectedLangs.join(',');
-    const manifestUrl = window.baseUrl + '/manifest.json?subdlApiKey=' + encodeURIComponent(subdlKey) + '&subsourceApiKey=' + encodeURIComponent(subsourceKey) + '&wyzieApiKey=' + encodeURIComponent(wyzieKey) + '&languages=' + encodeURIComponent(langs);
+    
+    // Usa window.location.origin para garantir que a URL base nunca seja undefined
+    const baseUrl = window.location.origin;
+    const manifestUrl = baseUrl + '/manifest.json?subdlApiKey=' + encodeURIComponent(subdlKey) + '&subsourceApiKey=' + encodeURIComponent(subsourceKey) + '&wyzieApiKey=' + encodeURIComponent(wyzieKey) + '&languages=' + encodeURIComponent(langs);
     
     window.location.href = 'stremio://' + manifestUrl.replace('https://', '').replace('http://', '');
 }

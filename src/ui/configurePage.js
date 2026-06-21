@@ -23,9 +23,6 @@ function getConfigureHTML(baseUrl) {
 
         ${footer()}
     </div>
-    <script>
-        window.baseUrl = "${baseUrl}";
-    </script>
     <script src="/assets/app.js"></script>
 </body>
 </html>
