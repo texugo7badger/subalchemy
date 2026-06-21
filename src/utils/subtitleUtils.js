@@ -28,30 +28,31 @@ function detectLanguage(fileName, content) {
         if (ptCount > enCount && ptCount > 2) return 'pob';
         if (enCount > ptCount && enCount > 2) return 'eng';
     }
-    return 'eng'; // Fallback
+    return 'eng';
 }
 
-async function extractSubsFromMagnet(magnetLink) {
-    let client;
-    try {
-        // CORREÇÃO: Usar import dinâmico para resolver o erro ESM do webtorrent
-        const WebTorrent = (await import('webtorrent')).default;
-        client = new WebTorrent();
-        
-        return await new Promise((resolve) => {
-            const timeout = 20000; // 20 segundos
-            let resolved = false;
+async function extractSubs(torrentSource) {
+    const WebTorrent = (await import('webtorrent')).default;
+    const client = new WebTorrent();
+    
+    return new Promise((resolve) => {
+        let resolved = false;
+        const timeout = 25000;
 
-            const timer = setTimeout(() => {
-                if (!resolved) {
-                    resolved = true;
-                    log('warn', `[Torrent] Timeout extracting subs from magnet`);
-                    if (client) client.destroy();
-                    resolve([]);
+        const timer = setTimeout(() => {
+            if (!resolved) {
+                resolved = true;
+                log('warn', `[Torrent] Timeout extracting subs`);
+                client.destroy(() => resolve([]));
+            }
+        }, timeout);
+
+        try {
+            client.add(torrentSource, { path: '/tmp' }, (torrent) => {
+                if (resolved) {
+                    try { torrent.destroy(); } catch(e) {}
+                    return;
                 }
-            }, timeout);
-
-            client.add(magnetLink, { path: '/tmp' }, (torrent) => {
                 const subtitleFiles = torrent.files.filter(file => 
                     /\.(ass|ssa|srt|vtt)$/i.test(file.name)
                 );
@@ -61,8 +62,7 @@ async function extractSubsFromMagnet(magnetLink) {
                         resolved = true; 
                         clearTimeout(timer); 
                         torrent.destroy(); 
-                        client.destroy();
-                        resolve([]); 
+                        client.destroy(() => resolve([])); 
                     }
                     return;
                 }
@@ -72,7 +72,7 @@ async function extractSubsFromMagnet(magnetLink) {
                 
                 subtitleFiles.forEach((file) => {
                     file.getBuffer((err, buffer) => {
-                        if (!err) {
+                        if (!err && !resolved) {
                             const content = buffer.toString('utf-8');
                             subs.push({
                                 fileName: file.name,
@@ -87,20 +87,21 @@ async function extractSubsFromMagnet(magnetLink) {
                                 resolved = true;
                                 clearTimeout(timer);
                                 torrent.destroy();
-                                client.destroy();
-                                resolve(subs);
+                                client.destroy(() => resolve(subs));
                             }
                         }
                     });
                 });
             });
-        });
-    } catch (err) {
-        log('error', `[Torrent] WebTorrent error: ${err.message}`);
-        return [];
-    } finally {
-        if (client) client.destroy();
-    }
+        } catch (err) {
+            log('error', `[Torrent] WebTorrent error: ${err.message}`);
+            if (!resolved) {
+                resolved = true;
+                clearTimeout(timer);
+                client.destroy(() => resolve([]));
+            }
+        }
+    });
 }
 
-module.exports = { normalizeLang, detectLanguage, extractSubsFromMagnet };
+module.exports = { normalizeLang, detectLanguage, extractSubs };

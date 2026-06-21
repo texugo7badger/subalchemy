@@ -1,6 +1,6 @@
 const { BaseProvider, SubtitleResult } = require('./BaseProvider');
 const { log } = require('../logger');
-const { extractSubsFromMagnet, normalizeLang } = require('../utils/subtitleUtils');
+const { extractSubs, normalizeLang } = require('../utils/subtitleUtils');
 const subtitleStore = require('../cache/SubtitleStore');
 const crypto = require('crypto');
 const axios = require('axios');
@@ -35,7 +35,7 @@ class NekoBTProvider extends BaseProvider {
       const allSubs = [];
       for (const torrent of magnets) {
         log('info', `[NekoBT] Extracting subs from: ${torrent.title}`);
-        const extractedSubs = await extractSubsFromMagnet(torrent.magnet);
+        const extractedSubs = await extractSubs(torrent.magnet);
         
         for (const sub of extractedSubs) {
           const subId = crypto.createHash('md5').update(torrent.magnet + sub.fileName).digest('hex').slice(0, 20);

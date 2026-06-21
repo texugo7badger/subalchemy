@@ -1,6 +1,8 @@
 const { log } = require('../logger');
-const { PROVIDER_DEADLINE_MS } = require('../constants');
 const InflightCache = require('../cache/InflightCache');
+
+// Aumentado para 30s para permitir a extração via WebTorrent
+const DEFAULT_DEADLINE_MS = parseInt(process.env.PROVIDER_DEADLINE_MS, 10) || 30000;
 
 class ProviderManager {
   constructor() {
@@ -45,9 +47,9 @@ class ProviderManager {
       const timer = setTimeout(() => {
         if (settled) return;
         settled = true;
-        log('warn', `[ProviderManager] ${provider.name} exceeded ${PROVIDER_DEADLINE_MS}ms`);
+        log('warn', `[ProviderManager] ${provider.name} exceeded ${DEFAULT_DEADLINE_MS}ms`);
         resolve({ subtitles: [] });
-      }, PROVIDER_DEADLINE_MS);
+      }, DEFAULT_DEADLINE_MS);
 
       provider.search(query)
         .then(res => {
@@ -80,4 +82,4 @@ class ProviderManager {
   }
 }
 
-module.exports = new ProviderManager(); // Singleton
+module.exports = new ProviderManager();
