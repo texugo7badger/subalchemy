@@ -10,7 +10,13 @@ async function convertToSrt(sub) {
   try {
     const response = await axios.get(sub.url, { 
       responseType: 'arraybuffer',
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+      timeout: 10000,
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Referer': 'https://www.google.com/'
+      }
     });
     
     let srtContent = null;
@@ -23,17 +29,14 @@ async function convertToSrt(sub) {
     } else if (sub.format === 'vtt' || sub.fileName.toLowerCase().endsWith('.vtt')) {
       srtContent = convertVttToSrt(bufferToUtf8(buffer));
     } else {
-      // Assume SRT
       srtContent = bufferToUtf8(buffer);
     }
 
     if (!srtContent) return null;
-    
     return removeAds(srtContent);
   } catch (e) {
     log('error', `[Converters] Failed to process ${sub.url}: ${e.message}`);
     return null;
   }
 }
-
 module.exports = { convertToSrt };
