@@ -8,7 +8,7 @@ const { log } = require('../logger');
 const { OS_DIRECT_URL_RE } = require('../constants');
 const crypto = require('crypto');
 
-async function handleSubtitlesRequest(args, config) {
+async function handleSubtitlesRequest(args, config, baseUrl) {
   const { id, type } = args;
   const parsed = parseStremioId(id);
   const userAgent = config._userAgent || '';
@@ -22,7 +22,6 @@ async function handleSubtitlesRequest(args, config) {
     log('info', `[Handler] IMDB ID: ${parsed.imdbId}. Cinemeta Title: ${searchQuery}`);
   }
 
-  // Garante que languages seja sempre um Array
   let languages = ['en'];
   if (config.languages) {
     if (Array.isArray(config.languages)) {
@@ -52,7 +51,7 @@ async function handleSubtitlesRequest(args, config) {
       
       // If it's an OpenSubtitles URL and client is Stremio, let Stremio's streaming server handle it
       if (OS_DIRECT_URL_RE.test(sub.url) && isStremioClient(userAgent)) {
-        return { url: `http://127.0.0.1:11470/subtitles.srt?from=${encodeURIComponent(sub.url)}`, lang: sub.language };
+        return { id: sub.id, url: `http://127.0.0.1:11470/subtitles.srt?from=${encodeURIComponent(sub.url)}`, lang: sub.language };
       }
 
       // Otherwise, download, convert to SRT, cache, and serve via proxy
@@ -62,10 +61,12 @@ async function handleSubtitlesRequest(args, config) {
         
         const subId = crypto.createHash('md5').update(sub.url).digest('hex').slice(0, 20);
         subtitleStore.set(subId, { content: srtContent, lang: sub.language });
-        finalUrl = `${process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 7000}`}/srt/${subId}.srt`;
+        // CORREÇÃO: Usar a baseUrl dinâmica recebida da rota
+        finalUrl = `${baseUrl}/srt/${subId}.srt`;
       }
 
-      return { url: finalUrl, lang: sub.language };
+      // CORREÇÃO: Retornar o campo 'id' que o Stremio exige
+      return { id: sub.id, url: finalUrl, lang: sub.language };
     } catch (e) {
       log('error', `[Handler] Processing error for ${sub.url}: ${e.message}`);
       return null;

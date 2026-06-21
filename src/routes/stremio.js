@@ -14,7 +14,6 @@ function setStremioHeaders(res) {
     res.setHeader('Cache-Control', 'max-age=86400, public');
 }
 
-// Rota raiz (Stremio acessa aqui quando não tem config. Exige configuração)
 router.get('/manifest.json', (req, res) => {
   setStremioHeaders(res);
   const manifest = generateManifest({});
@@ -22,12 +21,10 @@ router.get('/manifest.json', (req, res) => {
   res.json(manifest);
 });
 
-// Rota COM configuração (Stremio acessa aqui depois de instalar)
 router.get('/:config/manifest.json', (req, res) => {
   const { config } = parseConfigParam(req.params.config);
   const manifest = generateManifest(config);
   
-  // Se tem config, não é mais necessário configurar!
   if (config && Object.keys(config).length > 0) {
     delete manifest.behaviorHints.configurationRequired;
   }
@@ -36,7 +33,6 @@ router.get('/:config/manifest.json', (req, res) => {
   res.json(manifest);
 });
 
-// Handler unificado para as rotas de legendas
 const subtitlesHandler = async (req, res) => {
   setStremioHeaders(res);
   try {
@@ -49,7 +45,9 @@ const subtitlesHandler = async (req, res) => {
       extra: req.params.extra || ''
     };
     
-    const result = await handleSubtitlesRequest(args, config);
+    // CORREÇÃO: Pega a URL base dinamicamente da requisição
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const result = await handleSubtitlesRequest(args, config, baseUrl);
     res.json(result);
   } catch (err) {
     log('error', `[StremioRoute] Subtitles error: ${err.message}`);
@@ -57,10 +55,7 @@ const subtitlesHandler = async (req, res) => {
   }
 };
 
-// Rota de Legendas SEM extra (ex: /config/subtitles/movie/tt123.json)
 router.get('/:config/subtitles/:type/:id.json', subtitlesHandler);
-
-// Rota de Legendas COM extra (ex: /config/subtitles/movie/tt123/extra.json)
 router.get('/:config/subtitles/:type/:id/:extra.json', subtitlesHandler);
 
 module.exports = router;
