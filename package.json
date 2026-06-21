@@ -1,23 +1,25 @@
 {
   "name": "subalchemy",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "2.0.0",
+  "description": "Universal SRT Converter for Tizen 9 & Anime. Fetches from cloud-friendly APIs and OpenSubtitles keyless.",
+  "main": "addon.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node addon.js"
   },
-  "keywords": [],
+  "keywords": ["stremio", "addon", "subtitles", "srt", "tizen", "anime"],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "type": "commonjs",
   "dependencies": {
     "adm-zip": "^0.5.17",
     "ass-compiler": "^0.1.16",
     "axios": "^1.18.0",
+    "chardet": "^2.1.1",
     "cheerio": "^1.2.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "stremio-addon-sdk": "^1.6.10"
+    "iconv-lite": "^0.7.1",
+    "stremio-addon-sdk": "^1.6.10",
+    "subsrt-ts": "^2.1.2"
   }
 }
