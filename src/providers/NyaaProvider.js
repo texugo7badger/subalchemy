@@ -8,7 +8,7 @@ const cheerio = require('cheerio');
 
 class NyaaProvider extends BaseProvider {
   constructor() {
-    super('NyaaSI', { enabled: true }); // Nome alterado
+    super('NyaaSI', { enabled: true });
   }
 
   async search(query) {
@@ -61,6 +61,7 @@ class NyaaProvider extends BaseProvider {
                     language: normalizeLang(sub.language),
                     source: 'NyaaSI',
                     fileName: sub.fileName,
+                    releaseName: torrent.title, // Nome do release para aparecer no Stremio
                     format: sub.format,
                     needsConversion: sub.format !== 'srt'
                 }));

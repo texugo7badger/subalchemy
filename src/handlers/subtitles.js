@@ -1,6 +1,6 @@
 const { parseStremioId, isStremioClient } = require('../utils');
 const { providerManager } = require('../providers');
-const { convertToSrt } = require('../converters');
+const { convertToSrt, convertRawToSrt } = require('../converters');
 const subtitleStore = require('../cache/SubtitleStore');
 const { getCinemetaTitle } = require('../meta/cinemeta');
 const { getKitsuTitle } = require('../meta/kitsu');
@@ -49,7 +49,7 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   log('info', `[Handler] Found ${subtitles.length} total subtitles before language filter.`);
 
   const ptVariations = ['pob', 'por', 'pb', 'pt', 'pt-br', 'ptbr', 'portuguese', 'português'];
-  let filteredSubs = subtitles.filter(sub => {
+  const filteredSubs = subtitles.filter(sub => {
     const subLang = normalizeLang(sub.language).toLowerCase();
     
     if (requestedLangs.some(r => ptVariations.includes(r))) {
@@ -60,34 +60,29 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
     return requestedLangs.includes(subLang);
   });
 
-  let isFallback = false;
-  if (filteredSubs.length === 0 && subtitles.length > 0 && !requestedLangs.includes('eng')) {
-    log('warn', `[Handler] No subtitles found for requested languages. Falling back to English.`);
-    filteredSubs = subtitles.filter(sub => normalizeLang(sub.language) === 'eng');
-    if (filteredSubs.length === 0) {
-        filteredSubs = subtitles;
-    }
-    isFallback = true;
-  } else if (filteredSubs.length === 0 && subtitles.length > 0) {
-    // Se pediu inglês e não achou, ou achou outros, mostra o que tem
-    filteredSubs = subtitles;
-    isFallback = true;
-  }
-
   log('info', `[Handler] Found ${filteredSubs.length} unique subtitles after language filter. Starting conversion...`);
 
   const subtitlesPromises = filteredSubs.map(async (sub) => {
     try {
       let finalUrl = sub.url;
-      let langName = getLanguageName(sub.language);
-      if (!langName) langName = sub.language || 'Unknown';
+      const langName = getLanguageName(sub.language) || sub.language || 'Unknown';
       
-      let subName = `SubAlchemy SRT [${langName}]`;
-      if (isFallback) subName += ' (Fallback)';
-      
-      // Se a URL já aponta para o nosso proxy (caso do Nyaa/NekoBT), não converte de novo
+      // Formata o nome para aparecer perfeitamente no Stremio
+      const displayName = sub.releaseName || sub.fileName || 'Unknown';
+      const subName = `SubAlchemy [${langName}] - ${displayName}`;
+
+      // Se a URL já aponta para o nosso proxy (caso Nyaa/NekoBT), converte o conteúdo bruto
       if (sub.url.includes('/srt/')) {
-         return { id: sub.id, url: sub.url, lang: sub.language, name: subName };
+        const subId = sub.url.split('/srt/')[1].replace('.srt', '');
+        const cached = subtitleStore.get(subId);
+        
+        if (cached && sub.needsConversion) {
+          const srtContent = convertRawToSrt(cached.content, sub.format);
+          if (!srtContent) return null;
+          subtitleStore.set(subId, { content: srtContent, lang: sub.language });
+        }
+        
+        return { id: sub.id, url: sub.url, lang: sub.language, name: subName };
       }
 
       if (OS_DIRECT_URL_RE.test(sub.url) && isStremioClient(userAgent)) {

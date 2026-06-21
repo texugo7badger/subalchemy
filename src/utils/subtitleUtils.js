@@ -1,6 +1,17 @@
 const { log } = require('../logger');
 const AdmZip = require('adm-zip');
 
+let clientInstance = null;
+
+async function getClient() {
+    if (!clientInstance) {
+        const WebTorrent = (await import('webtorrent')).default;
+        clientInstance = new WebTorrent();
+        log('info', '[Torrent] WebTorrent client initialized.');
+    }
+    return clientInstance;
+}
+
 const LANG_MAP = {
     'pt-br': 'pob', 'ptbr': 'pob', 'portuguese-brazil': 'pob', 'pb': 'pob', 'pt': 'pob', 'por': 'pob', 'portuguese': 'pob', 'português': 'pob',
     'en': 'eng', 'english': 'eng', 'eng': 'eng',
@@ -33,20 +44,18 @@ function detectLanguage(fileName, content) {
 }
 
 async function extractSubs(torrentSource) {
-    let client;
     try {
-        const WebTorrent = (await import('webtorrent')).default;
-        client = new WebTorrent();
+        const client = await getClient();
         
         return await new Promise((resolve) => {
             let resolved = false;
-            const timeout = 25000;
+            const timeout = 20000; // 20s por torrent
 
             const timer = setTimeout(() => {
                 if (!resolved) {
                     resolved = true;
                     log('warn', `[Torrent] Timeout extracting subs`);
-                    if (client) client.destroy(() => resolve([]));
+                    resolve([]);
                 }
             }, timeout);
 
@@ -57,7 +66,6 @@ async function extractSubs(torrentSource) {
                         return;
                     }
                     
-                    // Procura por arquivos de legenda OU arquivos .zip
                     const targetFiles = torrent.files.filter(file => 
                         /\.(ass|ssa|srt|vtt|zip)$/i.test(file.name)
                     );
@@ -67,7 +75,7 @@ async function extractSubs(torrentSource) {
                             resolved = true; 
                             clearTimeout(timer); 
                             torrent.destroy(); 
-                            client.destroy(() => resolve([])); 
+                            resolve([]); 
                         }
                         return;
                     }
@@ -111,26 +119,24 @@ async function extractSubs(torrentSource) {
                                     resolved = true;
                                     clearTimeout(timer);
                                     torrent.destroy();
-                                    client.destroy(() => resolve(subs));
+                                    resolve(subs);
                                 }
                             }
                         });
                     });
                 });
             } catch (err) {
-                log('error', `[Torrent] WebTorrent error: ${err.message}`);
+                log('error', `[Torrent] WebTorrent add error: ${err.message}`);
                 if (!resolved) {
                     resolved = true;
                     clearTimeout(timer);
-                    client.destroy(() => resolve([]));
+                    resolve([]);
                 }
             }
         });
     } catch (err) {
-        log('error', `[Torrent] WebTorrent error: ${err.message}`);
+        log('error', `[Torrent] Failed to get client: ${err.message}`);
         return [];
-    } finally {
-        if (client) client.destroy();
     }
 }
 

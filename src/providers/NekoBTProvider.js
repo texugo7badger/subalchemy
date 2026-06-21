@@ -8,7 +8,7 @@ const cheerio = require('cheerio');
 
 class NekoBTProvider extends BaseProvider {
   constructor() {
-    super('NekoBT', { enabled: true }); // Nome alterado
+    super('NekoBT', { enabled: true });
   }
 
   async search(query) {
@@ -28,7 +28,7 @@ class NekoBTProvider extends BaseProvider {
 
       $('a[href^="magnet:?"]').slice(0, 3).each((i, el) => {
         const magnet = $(el).attr('href');
-        const title = $(el).attr('title') || 'Unknown';
+        const title = $(el).attr('title') || $(el).closest('tr').find('.title').text().trim() || 'Unknown';
         magnets.push({ title, magnet });
       });
 
@@ -50,6 +50,7 @@ class NekoBTProvider extends BaseProvider {
             language: normalizeLang(sub.language),
             source: 'NekoBT',
             fileName: sub.fileName,
+            releaseName: torrent.title, // Nome do release
             format: sub.format,
             needsConversion: sub.format !== 'srt'
           }));
