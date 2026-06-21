@@ -25,8 +25,9 @@ const subtitlesCache = new Map();
 // ==========================================
 const manifest = {
     id: "org.subalchemy.addon",
-    version: "1.0.8",
+    version: "1.0.9",
     name: "SubAlchemy",
+    logo: `${BASE_URL}/subalchemy-logo.png`, // Logo appearing inside Stremio UI
     description: "Universal SRT Converter. Fetches from multiple cloud-friendly sources, supports Anime, and converts VTT/ASS to SRT.",
     resources: ["subtitles"],
     types: ["movie", "series"],

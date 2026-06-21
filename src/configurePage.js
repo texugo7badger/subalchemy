@@ -208,17 +208,14 @@ function getConfigureHTML(baseUrl) {
         <button class="install-btn" onclick="installAddon()">Install in Stremio</button>
 
         <div class="sources-section">
-            <h3>Active Aggregation Sources</h3>
+            <h3>Active Free Sources (No Config Required)</h3>
             <div class="sources-logos">
-                <div class="source-badge"><span class="dot"></span>SubDL</div>
-                <div class="source-badge"><span class="dot"></span>SubSource</div>
-                <div class="source-badge"><span class="dot"></span>Wyzie</div>
                 <div class="source-badge"><span class="dot"></span>AnimeTosho</div>
             </div>
         </div>
 
         <div class="donation">
-            <p>Did this magic solve your TV's subtitle problem? ✨<br>If you can, buy me a coffee to keep the cauldron bubbling!</p>
+            <p>Did this magic solve your TV's subtitle problem? 🦡<br>If you can, buy me a coffee to keep the cauldron bubbling!</p>
             <a href='https://ko-fi.com/G4H521S5GK' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi5.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
         </div>
     </div>

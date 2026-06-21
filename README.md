@@ -88,10 +88,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 <br>
 
 <div align="center">
-  <sub><i>Did this magic solve your TV's subtitle problem? ✨<br>If you can, buy me a coffee to keep the cauldron bubbling!</i></sub>
+  <sub><i>Did this magic solve your TV's subtitle problem? 🦡<br>If you can, buy me a coffee to keep the cauldron bubbling!</i></sub>
   <br><br>
   <a href="https://ko-fi.com/G4H521S5GK">
-    <img src="https://storage.ko-fi.com/cdn/kofi5.png?v=6" height="28" alt="Buy Me a Coffee at ko-fi.com" />
+    <img src="https://storage.ko-fi.com/cdn/kofi5.png?v=6" height="36" alt="Buy Me a Coffee at ko-fi.com" />
   </a>
 </div>
-```
