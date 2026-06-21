@@ -6,18 +6,8 @@ const { getCinemetaTitle } = require('../meta/cinemeta');
 const { getKitsuTitle } = require('../meta/kitsu');
 const { log } = require('../logger');
 const { OS_DIRECT_URL_RE } = require('../constants');
-const { normalizeLanguage, getLanguageName, isPortuguese } = require('../languages');
+const { normalizeLanguage, getLanguageName, isPortuguese, generatePlaceholder } = require('../languages');
 const crypto = require('crypto');
-
-// Legenda placeholder para não travar o Stremio
-const PLACEHOLDER_SRT = `1
-00:00:00,000 --> 00:00:05,000
-Baixando legenda em português...
-Por favor, aguarde alguns segundos.
-
-2
-00:00:05,000 --> 00:00:10,000
-A legenda estará disponível em breve.`;
 
 async function handleSubtitlesRequest(args, config, baseUrl) {
   const { id, type } = args;
@@ -61,33 +51,36 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   const userWantsPt = requestedLangs.some(isPortuguese);
   const userWantsEn = requestedLangs.includes('eng');
 
-  const filteredSubs = subtitles.filter(sub => {
-    const subLang = normalizeLanguage(sub.language);
-    if (!subLang) return false;
-    
-    if (userWantsPt && isPortuguese(subLang)) return true;
-    if (userWantsEn && subLang === 'eng') return true;
-    if (requestedLangs.includes(subLang)) return true;
-    
-    return false;
-  });
+  // 1. Filtra PT-BR primeiro
+  let filteredSubs = [];
+  if (userWantsPt) {
+    filteredSubs = subtitles.filter(sub => isPortuguese(sub.language));
+  }
 
-  log('info', `[Handler] Found ${filteredSubs.length} unique subtitles after language filter. Starting conversion...`);
+  // 2. Se não achou PT, busca Inglês
+  let isFallback = false;
+  if (filteredSubs.length === 0 && userWantsEn) {
+    log('warn', `[Handler] No PT subs found. Falling back to English.`);
+    filteredSubs = subtitles.filter(sub => normalizeLanguage(sub.language) === 'eng');
+    isFallback = true;
+  }
 
-  // Se não encontrou o idioma desejado, mas achou outros, retorna placeholder
-  if (filteredSubs.length === 0 && subtitles.length > 0 && userWantsPt) {
-    log('warn', `[Handler] No PT subs found. Returning placeholder.`);
+  // 3. Se não achou nem PT nem EN, retorna placeholder
+  if (filteredSubs.length === 0) {
+    log('warn', `[Handler] No subs found at all. Returning placeholder.`);
     const subId = crypto.createHash('md5').update('placeholder' + id).digest('hex').slice(0, 20);
-    subtitleStore.set(subId, { content: PLACEHOLDER_SRT, lang: 'eng' }); // Eng para o Stremio mostrar
+    subtitleStore.set(subId, { content: generatePlaceholder('No subtitles available for this episode'), lang: 'eng' });
     return { 
       subtitles: [{ 
         id: `placeholder-${subId}`, 
         url: `${baseUrl}/srt/${subId}.srt`, 
         lang: 'eng', 
-        name: 'SubAlchemy [Loading PT-BR...]' 
+        name: 'SubAlchemy [No Subs Found]' 
       }] 
     };
   }
+
+  log('info', `[Handler] Found ${filteredSubs.length} unique subtitles after language filter. Starting conversion...`);
 
   const subtitlesPromises = filteredSubs.map(async (sub) => {
     try {
@@ -95,7 +88,8 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
       const langName = getLanguageName(sub.language) || sub.language || 'Unknown';
       
       const displayName = sub.releaseName || sub.fileName || 'Unknown';
-      const subName = `SubAlchemy [${langName}] - ${displayName}`;
+      let subName = `SubAlchemy [${langName}] - ${displayName}`;
+      if (isFallback) subName += ' (Fallback)';
 
       if (sub.url.includes('/srt/')) {
         const subId = sub.url.split('/srt/')[1].replace('.srt', '');

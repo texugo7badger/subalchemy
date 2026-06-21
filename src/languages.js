@@ -1,3 +1,5 @@
+const { generatePlaceholder: genPlaceholder } = require('./utils/subtitleUtils');
+
 const LANG_MAP = {
   'pt-br': 'por', 'ptbr': 'por', 'portuguese-brazil': 'por', 'pb': 'por',
   'pt': 'por', 'portuguese': 'por', 'pob': 'por',
@@ -36,7 +38,6 @@ function normalizeLanguage(lang) {
   return LANG_MAP[normalized] || normalized;
 }
 
-// Mantido para compatibilidade
 function normalizeLang(lang) {
   return normalizeLanguage(lang) || 'eng';
 }
@@ -50,4 +51,8 @@ function isPortuguese(langCode) {
   return normalizeLanguage(langCode) === 'por';
 }
 
-module.exports = { normalizeLang, normalizeLanguage, getLanguageName, isPortuguese };
+function generatePlaceholder(message, duration) {
+  return genPlaceholder(message, duration);
+}
+
+module.exports = { normalizeLang, normalizeLanguage, getLanguageName, isPortuguese, generatePlaceholder };

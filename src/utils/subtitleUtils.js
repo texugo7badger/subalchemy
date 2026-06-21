@@ -8,6 +8,7 @@ async function getClient() {
     if (!clientInstance) {
         try {
             const WebTorrent = (await import('webtorrent')).default;
+            // Desativa DHT e PEX para não abrir múltiplas portas UDP no Render
             clientInstance = new WebTorrent({ dht: false, pex: false, tracker: true });
             log('info', '[Torrent] WebTorrent client initialized (DHT/PEX disabled).');
         } catch (e) {
@@ -44,26 +45,36 @@ function detectLanguageFromFileName(fileName) {
 
 function detectLanguageFromContent(content) {
     if (!content) return null;
-    const sample = content.slice(0, 10000).toLowerCase();
-    const ptWords = ['você', 'não', 'está', 'também', 'porque', 'isso', 'então', 'olá', 'obrigado', 'sim', 'eu', 'nós', 'eles', 'com', 'para', 'por', 'mas', 'que'];
+    const sample = content.slice(0, 10000).toLowerCase(); // primeiros 10KB
+    const ptWords = ['eu', 'você', 'nós', 'eles', 'elas', 'com', 'para', 'por', 'mas', 'que', 'e', 'a', 'o', 'de', 'em', 'um', 'uma', 'dos', 'das', 'se', 'me', 'te', 'lhe', 'nos', 'vos'];
     let ptCount = 0;
     for (const word of ptWords) {
         if (sample.includes(word)) ptCount++;
     }
-    if (ptCount > 4) return 'por';
+    if (ptCount > 5) return 'por';
     
-    const enWords = ['you', 'the', 'are', 'this', 'that', 'with', 'have', 'hello', 'thank', 'yes', 'and', 'of', 'to', 'for'];
+    const enWords = ['the', 'and', 'of', 'to', 'for', 'with', 'on', 'at', 'from', 'by', 'in', 'that', 'this'];
     let enCount = 0;
     for (const word of enWords) {
         if (sample.includes(word)) enCount++;
     }
-    if (enCount > 4) return 'eng';
+    if (enCount > 5) return 'eng';
     
     return null;
 }
 
 function detectLanguage(fileName, content) {
     return detectLanguageFromFileName(fileName) || detectLanguageFromContent(content) || 'eng';
+}
+
+function generatePlaceholder(message, duration = 10) {
+    return `1
+00:00:00,000 --> 00:00:${String(duration).padStart(2, '0')},000
+ ${message}
+
+2
+00:00:${String(duration).padStart(2, '0')},000 --> 00:00:${String(duration + 5).padStart(2, '0')},000
+Subtitles will be loaded soon...`;
 }
 
 async function extractSubs(torrentSource) {
@@ -191,4 +202,4 @@ async function extractSubs(torrentSource) {
     }
 }
 
-module.exports = { normalizeLanguage, isPortuguese, detectLanguage, extractSubs };
+module.exports = { normalizeLanguage, isPortuguese, detectLanguage, generatePlaceholder, extractSubs };
