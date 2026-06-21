@@ -1,8 +1,12 @@
 const { BaseProvider, SubtitleResult } = require('./BaseProvider');
 const { log } = require('../logger');
-const { THROTTLE_MS } = require('../constants');
+const { OS_BASE, THROTTLE_MS } = require('../constants');
 const { normalizeLang } = require('../languages');
 const axios = require('axios');
+const { SocksProxyAgent } = require('socks-proxy-agent');
+
+// Configura o agente do WARP (proxy local)
+const warpAgent = new SocksProxyAgent('socks5://127.0.0.1:40000');
 
 class OpenSubtitlesProvider extends BaseProvider {
   constructor() {
@@ -24,16 +28,15 @@ class OpenSubtitlesProvider extends BaseProvider {
       searchPath += `/sublanguageid-${normalizeLang(query.languages[0])}`;
     }
 
-    // CORREÇÃO: Usar um proxy CORS para mascarar o IP do Render
-    const targetUrl = `https://rest.opensubtitles.org${searchPath}`;
-    const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`;
-    
-    log('debug', `[OpenSubtitles] Fetching via proxy: ${proxyUrl}`);
+    const url = `${OS_BASE}${searchPath}`;
+    log('debug', `[OpenSubtitles] Fetching via WARP: ${url}`);
     
     await this._throttle();
     
     try {
-      const response = await axios.get(proxyUrl, {
+      const response = await axios.get(url, {
+        httpAgent: warpAgent,
+        httpsAgent: warpAgent,
         headers: { 
           'X-User-Agent': 'VLSub 0.10.3', 
           'Accept': 'application/json' 

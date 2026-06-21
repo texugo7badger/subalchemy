@@ -71,13 +71,12 @@ async function testAPI(type) {
     } 
 }
 
-function installAddon() {
+async function installAddon() {
     const subdlKey = document.getElementById('subdlApiKey').value.trim();
     const subsourceKey = document.getElementById('subsourceApiKey').value.trim();
     const wyzieKey = document.getElementById('wyzieApiKey').value.trim();
     const langs = selectedLangs.join(',');
     
-    // Cria o objeto de configuração
     const configObj = {
         subdlApiKey: subdlKey,
         subsourceApiKey: subsourceKey,
@@ -85,19 +84,29 @@ function installAddon() {
         languages: langs
     };
     
-    // Remove chaves vazias para manter a URL limpa
+    // Remove chaves vazias
     Object.keys(configObj).forEach(k => (configObj[k] === '' || configObj[k] === null) && delete configObj[k]);
     
-    // Codifica o objeto JSON para colocar na URL
-    const configStr = encodeURIComponent(JSON.stringify(configObj));
-    const baseUrl = window.location.origin;
-    const manifestUrl = `${baseUrl}/${configStr}/manifest.json`;
-    
-    window.location.href = 'stremio://' + manifestUrl.replace('https://', '').replace('http://', '');
+    try {
+        // Envia para o backend criptografar
+        const res = await fetch('/api/config/encode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(configObj)
+        });
+        const data = await res.json();
+        
+        if (data.encoded) {
+            const baseUrl = window.location.origin;
+            const manifestUrl = `${baseUrl}/${data.encoded}/manifest.json`;
+            window.location.href = 'stremio://' + manifestUrl.replace('https://', '').replace('http://', '');
+        } else {
+            alert('Failed to generate configuration.');
+        }
+    } catch (e) {
+        alert('Error installing: ' + e.message);
+    }
 }
-
-// Initialize on load
-renderTags();
 
 // Initialize on load
 renderTags();
