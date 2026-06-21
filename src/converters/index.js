@@ -5,22 +5,31 @@ const { convertAssToSrt } = require('./assToSrt');
 const { extractSrtFromZip } = require('./zipExtract');
 const { removeAds } = require('./removeAds');
 const { log } = require('../logger');
+const { SocksProxyAgent } = require('socks-proxy-agent');
+const { OS_DIRECT_URL_RE } = require('../constants');
+
+const warpAgent = new SocksProxyAgent('socks5://127.0.0.1:40000');
 
 async function convertToSrt(sub) {
   try {
     let downloadUrl = sub.url;
     
-    // CORREÇÃO: Garantir que o SubDL use o domínio principal
+    // Garante URL absoluta para SubDL
     if (downloadUrl.includes('subdl.com') && !downloadUrl.startsWith('https://subdl.com')) {
        downloadUrl = 'https://subdl.com' + new URL(downloadUrl).pathname + new URL(downloadUrl).search;
     }
 
     const urlObj = new URL(downloadUrl);
     const referer = urlObj.origin + '/';
+    
+    // Usa o proxy WARP se for URL do OpenSubtitles para evitar 403 no download
+    const agent = OS_DIRECT_URL_RE.test(downloadUrl) ? warpAgent : null;
 
     const response = await axios.get(downloadUrl, { 
       responseType: 'arraybuffer',
       timeout: 10000,
+      httpAgent: agent,
+      httpsAgent: agent,
       headers: { 
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
