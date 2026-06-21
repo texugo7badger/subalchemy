@@ -1,0 +1,4 @@
+```text
+node_modules/
+.env
+src/configurePage.js
