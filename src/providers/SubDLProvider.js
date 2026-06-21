@@ -23,10 +23,10 @@ class SubDLProvider extends BaseProvider {
 
       return {
         subtitles: response.data.subtitles.map(sub => {
-          // CORREÇÃO: Garantir que a URL seja absoluta
+          // CORREÇÃO: Usar o domínio principal subdl.com para baixar
           let fullUrl = sub.url;
           if (fullUrl && !fullUrl.startsWith('http')) {
-            fullUrl = 'https://api.subdl.com' + fullUrl;
+            fullUrl = 'https://subdl.com' + fullUrl;
           }
 
           return new SubtitleResult({
@@ -35,7 +35,7 @@ class SubDLProvider extends BaseProvider {
             language: normalizeLang(sub.language),
             source: 'subdl',
             fileName: sub.release_name ? sub.release_name + '.srt' : 'unknown.srt',
-            format: 'zip', // SubDL geralmente retorna ZIP
+            format: 'zip',
             needsConversion: true
           });
         })

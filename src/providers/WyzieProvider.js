@@ -16,7 +16,8 @@ class WyzieProvider extends BaseProvider {
     if (query.searchQuery) params.title = query.searchQuery;
 
     try {
-      const response = await axios.get('https://api.wyziesubs.dev/v1/subs', { params, timeout: 8000 });
+      // CORREÇÃO: Novo domínio da API Wyzie
+      const response = await axios.get('https://api.wyzie.nl/v1/subs', { params, timeout: 8000 });
       if (!Array.isArray(response.data)) return { subtitles: [] };
 
       return {
@@ -34,7 +35,7 @@ class WyzieProvider extends BaseProvider {
         })
       };
     } catch (err) {
-      log('warn', `[WyzieProvider] Unavailable or failed: ${err.message}`);
+      log('warn', `[Wyzie] Unavailable or failed: ${err.message}`);
       return { subtitles: [] };
     }
   }
