@@ -1,7 +1,7 @@
 const { log } = require('../logger');
 
 let clientInstance = null;
-const activeTorrents = new Map(); // magnet -> Promise<Torrent>
+const activeTorrents = new Map(); // infoHash -> Promise<Torrent>
 
 async function getClient() {
     if (!clientInstance) {
@@ -18,9 +18,17 @@ async function getClient() {
     return clientInstance;
 }
 
+function extractInfoHash(magnetLink) {
+    const match = magnetLink.match(/btih:([a-fA-F0-9]{40})/);
+    return match ? match[1].toLowerCase() : magnetLink;
+}
+
 async function getTorrent(magnetLink) {
-    if (activeTorrents.has(magnetLink)) {
-        return activeTorrents.get(magnetLink);
+    const infoHash = extractInfoHash(magnetLink);
+    
+    if (activeTorrents.has(infoHash)) {
+        log('info', `[TorrentClient] Reusing existing torrent: ${infoHash}`);
+        return activeTorrents.get(infoHash);
     }
 
     const promise = (async () => {
@@ -30,7 +38,7 @@ async function getTorrent(magnetLink) {
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
                 reject(new Error('Timeout adding torrent'));
-                activeTorrents.delete(magnetLink);
+                activeTorrents.delete(infoHash);
             }, 15000);
 
             try {
@@ -39,7 +47,7 @@ async function getTorrent(magnetLink) {
                     // Limpa da memória após 5 minutos para liberar RAM
                     setTimeout(() => {
                         try { torrent.destroy(); } catch(e) {}
-                        activeTorrents.delete(magnetLink);
+                        activeTorrents.delete(infoHash);
                     }, 300000);
                     resolve(torrent);
                 });
@@ -50,7 +58,7 @@ async function getTorrent(magnetLink) {
         });
     })();
 
-    activeTorrents.set(magnetLink, promise);
+    activeTorrents.set(infoHash, promise);
     return promise;
 }
 

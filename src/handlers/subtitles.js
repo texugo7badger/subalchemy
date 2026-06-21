@@ -6,7 +6,7 @@ const { getCinemetaTitle } = require('../meta/cinemeta');
 const { getKitsuTitle } = require('../meta/kitsu');
 const { log } = require('../logger');
 const { OS_DIRECT_URL_RE } = require('../constants');
-const { normalizeLanguage, getLanguageName, isPortuguese, generatePlaceholder } = require('../utils/subtitleUtils');
+const { normalizeLanguage, isPortuguese, generatePlaceholder } = require('../utils/subtitleUtils');
 const crypto = require('crypto');
 
 async function handleSubtitlesRequest(args, config, baseUrl) {
@@ -85,13 +85,12 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   const subtitlesPromises = filteredSubs.map(async (sub) => {
     try {
       let finalUrl = sub.url;
-      const langName = getLanguageName(sub.language) || sub.language || 'Unknown';
+      const langName = sub.language === 'por' ? 'Portuguese' : (sub.language === 'eng' ? 'English' : 'Unknown');
       
       const displayName = sub.releaseName || sub.fileName || 'Unknown';
       let subName = `SubAlchemy [${langName}] - ${displayName}`;
       if (isFallback) subName += ' (Fallback)';
 
-      // Se a URL já aponta para o nosso proxy, não converte de novo
       if (sub.url.includes('/srt/')) {
         return { id: sub.id, url: sub.url, lang: sub.language, name: subName };
       }

@@ -1,6 +1,7 @@
 const { BaseProvider, SubtitleResult } = require('./BaseProvider');
 const { log } = require('../logger');
 const { extractSubtitles } = require('../utils/subtitleExtractor');
+const { normalizeLanguage } = require('../utils/subtitleUtils');
 const subtitleStore = require('../cache/SubtitleStore');
 const crypto = require('crypto');
 const axios = require('axios');
@@ -50,11 +51,12 @@ class NekoBTProvider extends BaseProvider {
     const allSubs = [];
     for (const torrent of magnets.slice(0, 2)) {
       log('info', `[NekoBT] Streaming torrent: ${torrent.title}`);
-      const extractedSubs = await extractSubtitles(torrent.magnet, query.languages, 45000);
+      const extractedSubs = await extractSubtitles(torrent.magnet, 45000);
       
       for (const sub of extractedSubs) {
+        const lang = normalizeLanguage(sub.language);
         const subId = crypto.createHash('md5').update(torrent.magnet + sub.trackNumber).digest('hex').slice(0, 20);
-        subtitleStore.set(subId, { content: sub.content, lang: sub.language });
+        subtitleStore.set(subId, { content: sub.content, lang: lang });
         
         const baseUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 7000}`;
         const finalUrl = `${baseUrl}/srt/${subId}.srt`;
@@ -62,7 +64,7 @@ class NekoBTProvider extends BaseProvider {
         allSubs.push(new SubtitleResult({
           id: `nekobt-${subId}`,
           url: finalUrl,
-          language: sub.language,
+          language: lang,
           source: 'NekoBT',
           fileName: `${torrent.title}.srt`,
           releaseName: torrent.title,

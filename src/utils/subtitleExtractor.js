@@ -10,7 +10,7 @@ function formatTime(ms) {
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')},${String(milliseconds).padStart(3, '0')}`;
 }
 
-async function extractSubtitles(magnetLink, requestedLangs = ['por', 'eng'], timeout = 45000) {
+async function extractSubtitles(magnetLink, timeout = 45000) {
     log('info', `[SubtitleExtractor] Starting extraction for ${magnetLink.substring(0, 30)}...`);
     
     return new Promise(async (resolve) => {
@@ -65,20 +65,14 @@ async function extractSubtitles(magnetLink, requestedLangs = ['por', 'eng'], tim
                 
                 const results = [];
                 tracksInfo.forEach(track => {
-                    const trackLang = (track.language || 'eng').toLowerCase();
-                    const normalizedLang = trackLang.startsWith('pt') ? 'por' : trackLang;
-                    
                     if (subtitlesByTrack[track.number] && subtitlesByTrack[track.number].length > 0) {
-                        // Se o idioma da faixa está na lista de desejados
-                        if (requestedLangs.includes(normalizedLang)) {
-                            const content = subtitlesByTrack[track.number].join('\n');
-                            results.push({
-                                language: normalizedLang,
-                                content: content,
-                                format: 'srt',
-                                trackNumber: track.number
-                            });
-                        }
+                        const content = subtitlesByTrack[track.number].join('\n');
+                        results.push({
+                            language: track.language || track.name || 'eng',
+                            content: content,
+                            format: 'srt',
+                            trackNumber: track.number
+                        });
                     }
                 });
                 
