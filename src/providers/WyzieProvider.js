@@ -9,18 +9,14 @@ class WyzieProvider extends BaseProvider {
   }
 
   async search(query) {
-    const apiKey = query.apiKeys?.wyzieApiKey;
-    // CORREÇÃO: Wyzie agora requer API Key
-    if (!apiKey) {
-      log('warn', '[Wyzie] API Key is required.');
-      return { subtitles: [] };
-    }
-
-    const params = { key: apiKey }; // Adiciona a chave aqui
+    if (!query.imdbId && !query.searchQuery) return { subtitles: [] };
+    
+    const params = {};
     if (query.imdbId) params.imdb = query.imdbId;
     if (query.searchQuery) params.title = query.searchQuery;
 
     try {
+      // Mantém a URL, mas se a API estiver offline, cai no catch
       const response = await axios.get('https://sub.wyzie.io/api/v1/subs', { params, timeout: 8000 });
       if (!Array.isArray(response.data)) return { subtitles: [] };
 
@@ -39,6 +35,7 @@ class WyzieProvider extends BaseProvider {
         })
       };
     } catch (err) {
+      // CORREÇÃO: Logar como warn, pois a API do Wyzie costuma ser instável
       log('warn', `[Wyzie] Unavailable or failed: ${err.message}`);
       return { subtitles: [] };
     }
