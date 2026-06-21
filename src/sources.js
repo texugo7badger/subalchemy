@@ -32,36 +32,48 @@ async function getKitsuTitle(kitsuId) {
 }
 
 async function searchSubDL({ imdbId, query, apiKey, languages }) {
-    if (!apiKey) return [];
+    if (!apiKey) {
+        console.log("[SubAlchemy] SubDL: Skipped (no API key)");
+        return [];
+    }
     const params = { api_key: apiKey, languages: languages };
     if (imdbId) params.imdb_id = imdbId;
     if (query) params.film_name = query;
     
     try {
+        console.log(`[SubAlchemy] SubDL: Requesting with params:`, params);
         const response = await axios.get('https://api.subdl.com/api/v1/subtitles', { params });
         if (response.data.subtitles) {
+            console.log(`[SubAlchemy] SubDL: Found ${response.data.subtitles.length} subs.`);
             return response.data.subtitles.map(sub => ({
                 url: sub.url,
                 fileName: sub.release_name ? sub.release_name + '.srt' : 'unknown.srt',
                 lang: normalizeLang(sub.language)
             }));
         }
+        console.log("[SubAlchemy] SubDL: No subs found in response.");
         return [];
-    } catch (e) { console.error("[SubAlchemy] SubDL Error:", e.response?.status || e.message); return []; }
+    } catch (e) { 
+        console.error("[SubAlchemy] SubDL Error:", e.response?.status, e.response?.data?.message || e.message); 
+        return []; 
+    }
 }
 
 async function searchSubSource({ query, apiKey }) {
     if (!apiKey || !query) return [];
+    // Add SubSource API logic here if available
     return [];
 }
 
-async function searchWyzie({ imdbId, query, apiKey }) {
+async function searchWyzie({ imdbId, query }) {
     if (!imdbId && !query) return [];
     try {
         const response = await axios.get('https://api.wyziesubs.dev/v1/subs', {
-            params: { imdb: imdbId, title: query }
+            params: { imdb: imdbId, title: query },
+            timeout: 5000 // 5 seconds timeout
         });
         if (response.data) {
+            console.log(`[SubAlchemy] Wyzie: Found ${response.data.length} subs.`);
             return response.data.map(sub => ({
                 url: sub.url,
                 fileName: sub.filename || "unknown.vtt",
@@ -69,7 +81,11 @@ async function searchWyzie({ imdbId, query, apiKey }) {
             }));
         }
         return [];
-    } catch (e) { console.error("[SubAlchemy] Wyzie Error:", e.response?.status || e.message); return []; }
+    } catch (e) { 
+        // Falha silenciosa para não poluir o log se o domínio estiver morto
+        console.log("[SubAlchemy] Wyzie: Unavailable or offline.");
+        return []; 
+    }
 }
 
 async function searchAnimeTosho({ query }) {

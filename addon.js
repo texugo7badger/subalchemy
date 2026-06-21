@@ -25,9 +25,9 @@ const subtitlesCache = new Map();
 // ==========================================
 const manifest = {
     id: "org.subalchemy.addon",
-    version: "1.0.9",
+    version: "1.1.0",
     name: "SubAlchemy",
-    logo: `${BASE_URL}/subalchemy-logo.png`, // Logo appearing inside Stremio UI
+    logo: `${BASE_URL}/subalchemy-logo.png`,
     description: "Universal SRT Converter. Fetches from multiple cloud-friendly sources, supports Anime, and converts VTT/ASS to SRT.",
     resources: ["subtitles"],
     types: ["movie", "series"],
@@ -37,7 +37,6 @@ const manifest = {
     config: [
         { key: 'subdlApiKey', type: 'string', title: 'SubDL API Key', default: process.env.SUBDL_API_KEY || '' },
         { key: 'subsourceApiKey', type: 'string', title: 'SubSource API Key', default: process.env.SUBSOURCE_API_KEY || '' },
-        { key: 'wyzieApiKey', type: 'string', title: 'Wyzie API Key', default: process.env.WYZIE_API_KEY || '' },
         { key: 'languages', type: 'string', title: 'Languages', default: 'en,pt-br,es,fr,de,it,ja,zh,ru,ar,hi,ko' }
     ]
 };
@@ -48,6 +47,7 @@ const builder = new addonBuilder(manifest);
 // STREMIO SUBTITLES HANDLER
 // ==========================================
 builder.defineSubtitlesHandler(async ({ id, type, config }) => {
+    console.log(`\n[SubAlchemy] =========================================`);
     console.log(`[SubAlchemy] Request received for: ${id}`);
     
     let imdbId = null;
@@ -56,24 +56,31 @@ builder.defineSubtitlesHandler(async ({ id, type, config }) => {
     if (id.startsWith('kitsu:')) {
         const kitsuId = id.split(':')[1];
         searchQuery = await getKitsuTitle(kitsuId);
+        console.log(`[SubAlchemy] Kitsu Anime detected. Search query: ${searchQuery}`);
     } else {
         imdbId = id.split(':')[0];
+        console.log(`[SubAlchemy] IMDB ID detected: ${imdbId}`);
     }
     
-    const apiKeys = {
-        subdlApiKey: config?.subdlApiKey || process.env.SUBDL_API_KEY,
-        subsourceApiKey: config?.subsourceApiKey || process.env.SUBSOURCE_API_KEY,
-        wyzieApiKey: config?.wyzieApiKey || process.env.WYZIE_API_KEY
-    };
+    const subdlKey = config?.subdlApiKey || process.env.SUBDL_API_KEY;
+    const subsourceKey = config?.subsourceApiKey || process.env.SUBSOURCE_API_KEY;
     const languages = config?.languages || 'en,pt-br,es,fr,de,it,ja,zh,ru,ar,hi,ko';
 
-    console.log("[SubAlchemy] Searching multiple sources...");
+    console.log(`[SubAlchemy] Config -> SubDL Key exists: ${!!subdlKey}`);
+    console.log(`[SubAlchemy] Config -> Languages: ${languages}`);
+    console.log(`[SubAlchemy] Searching multiple sources...`);
+
     const [subdlSubs, subsourceSubs, wyzieSubs, animeToshoSubs] = await Promise.all([
-        searchSubDL({ imdbId, query: searchQuery, apiKey: apiKeys.subdlApiKey, languages }),
-        searchSubSource({ query: searchQuery, apiKey: apiKeys.subsourceApiKey }),
-        searchWyzie({ imdbId, query: searchQuery, apiKey: apiKeys.wyzieApiKey }),
+        searchSubDL({ imdbId, query: searchQuery, apiKey: subdlKey, languages }),
+        searchSubSource({ query: searchQuery, apiKey: subsourceKey }),
+        searchWyzie({ imdbId, query: searchQuery }),
         searchAnimeTosho({ query: searchQuery })
     ]);
+
+    console.log(`[SubAlchemy] Results -> SubDL: ${subdlSubs.length}`);
+    console.log(`[SubAlchemy] Results -> SubSource: ${subsourceSubs.length}`);
+    console.log(`[SubAlchemy] Results -> Wyzie: ${wyzieSubs.length}`);
+    console.log(`[SubAlchemy] Results -> AnimeTosho: ${animeToshoSubs.length}`);
 
     const allSubs = [...subdlSubs, ...subsourceSubs, ...wyzieSubs, ...animeToshoSubs];
     const uniqueUrls = new Set();
@@ -82,6 +89,8 @@ builder.defineSubtitlesHandler(async ({ id, type, config }) => {
         uniqueUrls.add(sub.url);
         return true;
     });
+
+    console.log(`[SubAlchemy] Total unique subtitles to convert: ${uniqueSubs.length}`);
 
     const subtitlesPromises = uniqueSubs.map(async (sub) => {
         try {
@@ -115,11 +124,14 @@ builder.defineSubtitlesHandler(async ({ id, type, config }) => {
                 return { url: `${BASE_URL}/srt/${subId}.srt`, lang: sub.lang };
             }
             return null;
-        } catch (e) { return null; }
+        } catch (e) { 
+            console.error(`[SubAlchemy] Conversion error for ${sub.url}:`, e.message);
+            return null; 
+        }
     });
 
     const subtitles = (await Promise.all(subtitlesPromises)).filter(s => s !== null);
-    console.log(`[SubAlchemy] Returning ${subtitles.length} SRT subtitles.`);
+    console.log(`[SubAlchemy] SUCCESS! Returning ${subtitles.length} SRT subtitles to Stremio.`);
     
     return { subtitles: subtitles };
 });
@@ -130,7 +142,6 @@ builder.defineSubtitlesHandler(async ({ id, type, config }) => {
 const app = express();
 const stremioRouter = getRouter(builder.getInterface());
 
-// 1. Serve Logo
 app.get('/subalchemy-logo.png', (req, res) => {
     try {
         const img = fs.readFileSync(path.join(__dirname, 'subalchemy-logo.png'));
@@ -139,22 +150,18 @@ app.get('/subalchemy-logo.png', (req, res) => {
     } catch (e) { res.status(404).send('Image not found'); }
 });
 
-// 2. Serve Custom Config Page
 app.get(['/', '/configure'], (req, res) => {
     res.set('Content-Type', 'text/html');
     res.send(getConfigureHTML(BASE_URL));
 });
 
-// 3. API Test Route
 app.get('/test-api', async (req, res) => {
     const { type, key } = req.query;
     if (!key) return res.status(400).json({ valid: false });
-
     try {
         if (type === 'subdl') {
             await axios.get('https://api.subdl.com/api/v1/subtitles?imdb_id=tt0111161', { params: { api_key: key.trim() } });
         } 
-        // Add subsource/wyzie tests if APIs become available
         res.json({ valid: true });
     } catch (e) {
         const status = e.response?.status;
@@ -164,7 +171,6 @@ app.get('/test-api', async (req, res) => {
     }
 });
 
-// 4. Serve SRT Cache
 app.get('/srt/:subId', (req, res) => {
     const subId = req.params.subId.replace('.srt', '');
     const cachedSub = subtitlesCache.get(subId);
@@ -177,10 +183,8 @@ app.get('/srt/:subId', (req, res) => {
     }
 });
 
-// 5. Fallback to Stremio SDK Router (handles /manifest.json, etc)
 app.use(stremioRouter);
 
-// Start server
 app.listen(PORT, () => {
     console.log(`[SubAlchemy] Addon accessible at: ${BASE_URL}/manifest.json`);
 });
