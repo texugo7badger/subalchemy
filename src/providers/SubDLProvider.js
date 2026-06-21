@@ -20,18 +20,25 @@ class SubDLProvider extends BaseProvider {
     try {
       const response = await axios.get('https://api.subdl.com/api/v1/subtitles', { 
         params, 
-        timeout: 8000
+        timeout: 8000,
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0' }
       });
       
       if (!response.data?.subtitles) return { subtitles: [] };
 
       return {
         subtitles: response.data.subtitles.map(sub => {
-          // CORREÇÃO: Usar o domínio principal subdl.com para baixar
           let fullUrl = sub.url;
           if (fullUrl && !fullUrl.startsWith('http')) {
             fullUrl = 'https://subdl.com' + fullUrl;
           }
+          
+          // CORREÇÃO: Remove api_key da URL de download para evitar 404
+          try {
+            const urlObj = new URL(fullUrl);
+            urlObj.searchParams.delete('api_key');
+            fullUrl = urlObj.toString();
+          } catch (e) {}
 
           return new SubtitleResult({
             id: `subdl-${sub.subtitleId || sub.url}`,
