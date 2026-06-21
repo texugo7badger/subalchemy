@@ -29,11 +29,12 @@ class SubDLProvider extends BaseProvider {
       return {
         subtitles: response.data.subtitles.map(sub => {
           let fullUrl = sub.url;
+          // CORREÇÃO: Usar api.subdl.com como domínio base
           if (fullUrl && !fullUrl.startsWith('http')) {
-            fullUrl = 'https://subdl.com' + fullUrl;
+            fullUrl = 'https://api.subdl.com' + fullUrl;
           }
           
-          // CORREÇÃO: Remove api_key da URL de download para evitar 404
+          // Remove api_key da URL de download se existir
           try {
             const urlObj = new URL(fullUrl);
             urlObj.searchParams.delete('api_key');

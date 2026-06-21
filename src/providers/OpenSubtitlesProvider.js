@@ -33,7 +33,7 @@ class OpenSubtitlesProvider extends BaseProvider {
     await this._throttle();
     
     try {
-      let response = await axios.get(url, {
+      const response = await axios.get(url, {
         httpAgent: warpAgent,
         httpsAgent: warpAgent,
         headers: { 
@@ -42,22 +42,6 @@ class OpenSubtitlesProvider extends BaseProvider {
         },
         timeout: 10000
       });
-
-      // Fallback: Se não encontrar por IMDB ID, tenta pelo título
-      if (!Array.isArray(response.data) || response.data.length === 0) {
-        if (query.searchQuery) {
-          const fallbackPath = `/search/query-${encodeURIComponent(query.searchQuery)}`;
-          const fallbackUrl = `${OS_BASE}${fallbackPath}`;
-          log('debug', `[OpenSubtitles] IMDB ID returned 0. Fallback fetching: ${fallbackUrl}`);
-          await this._throttle();
-          response = await axios.get(fallbackUrl, {
-            httpAgent: warpAgent,
-            httpsAgent: warpAgent,
-            headers: { 'X-User-Agent': OS_UA, 'Accept': 'application/json' },
-            timeout: 10000
-          });
-        }
-      }
 
       if (!Array.isArray(response.data)) return { subtitles: [] };
 
