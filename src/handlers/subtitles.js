@@ -48,7 +48,6 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   const { subtitles } = await providerManager.searchAll(query);
   log('info', `[Handler] Found ${subtitles.length} total subtitles before language filter.`);
 
-  // FILTRO RIGOROSO E PERMISSIVO para PT-BR
   const ptVariations = ['pob', 'por', 'pb', 'pt', 'pt-br', 'ptbr', 'portuguese', 'português'];
   let filteredSubs = subtitles.filter(sub => {
     const subLang = normalizeLang(sub.language).toLowerCase();
@@ -61,16 +60,17 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
     return requestedLangs.includes(subLang);
   });
 
-  // FALLBACK INTELIGENTE: Se não achou o idioma desejado, retorna as em Inglês
   let isFallback = false;
-  if (filteredSubs.length === 0 && subtitles.length > 0) {
+  if (filteredSubs.length === 0 && subtitles.length > 0 && !requestedLangs.includes('eng')) {
     log('warn', `[Handler] No subtitles found for requested languages. Falling back to English.`);
     filteredSubs = subtitles.filter(sub => normalizeLang(sub.language) === 'eng');
-    
-    // Se nem inglês tiver, retorna tudo
     if (filteredSubs.length === 0) {
         filteredSubs = subtitles;
     }
+    isFallback = true;
+  } else if (filteredSubs.length === 0 && subtitles.length > 0) {
+    // Se pediu inglês e não achou, ou achou outros, mostra o que tem
+    filteredSubs = subtitles;
     isFallback = true;
   }
 
@@ -79,10 +79,13 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   const subtitlesPromises = filteredSubs.map(async (sub) => {
     try {
       let finalUrl = sub.url;
-      const langName = getLanguageName(sub.language);
-      const subName = `SubAlchemy SRT [${langName}]${isFallback ? ' (Fallback)' : ''}`;
+      let langName = getLanguageName(sub.language);
+      if (!langName) langName = sub.language || 'Unknown';
       
-      // Se a URL já aponta para o nosso proxy, não converte de novo
+      let subName = `SubAlchemy SRT [${langName}]`;
+      if (isFallback) subName += ' (Fallback)';
+      
+      // Se a URL já aponta para o nosso proxy (caso do Nyaa/NekoBT), não converte de novo
       if (sub.url.includes('/srt/')) {
          return { id: sub.id, url: sub.url, lang: sub.language, name: subName };
       }

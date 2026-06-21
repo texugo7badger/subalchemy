@@ -8,7 +8,7 @@ const cheerio = require('cheerio');
 
 class NyaaProvider extends BaseProvider {
   constructor() {
-    super('nyaa', { enabled: true });
+    super('NyaaSI', { enabled: true }); // Nome alterado
   }
 
   async search(query) {
@@ -28,7 +28,7 @@ class NyaaProvider extends BaseProvider {
 
       $('item').slice(0, 3).each((i, el) => {
         const title = $(el).find('title').text();
-        const link = $(el).find('link').text(); // Link para o .torrent
+        const link = $(el).find('link').text();
         if (link) {
           torrents.push({ title, link });
         }
@@ -37,7 +37,7 @@ class NyaaProvider extends BaseProvider {
       const allSubs = [];
       for (const torrent of torrents) {
         try {
-            log('info', `[Nyaa] Downloading torrent file: ${torrent.title}`);
+            log('info', `[NyaaSI] Downloading torrent file: ${torrent.title}`);
             const torrentRes = await axios.get(torrent.link, { 
                 responseType: 'arraybuffer', 
                 timeout: 8000,
@@ -45,7 +45,7 @@ class NyaaProvider extends BaseProvider {
             });
             const torrentBuffer = Buffer.from(torrentRes.data);
             
-            log('info', `[Nyaa] Extracting subs from: ${torrent.title}`);
+            log('info', `[NyaaSI] Extracting subs from: ${torrent.title}`);
             const extractedSubs = await extractSubs(torrentBuffer);
             
             for (const sub of extractedSubs) {
@@ -56,24 +56,24 @@ class NyaaProvider extends BaseProvider {
                 const finalUrl = `${baseUrl}/srt/${subId}.srt`;
 
                 allSubs.push(new SubtitleResult({
-                    id: `nyaa-${subId}`,
+                    id: `nyaasi-${subId}`,
                     url: finalUrl,
                     language: normalizeLang(sub.language),
-                    source: 'nyaa',
+                    source: 'NyaaSI',
                     fileName: sub.fileName,
                     format: sub.format,
                     needsConversion: sub.format !== 'srt'
                 }));
             }
         } catch (e) {
-            log('warn', `[Nyaa] Failed to process torrent: ${e.message}`);
+            log('warn', `[NyaaSI] Failed to process torrent: ${e.message}`);
         }
       }
 
-      log('info', `[Nyaa] Found ${allSubs.length} subtitles.`);
+      log('info', `[NyaaSI] Found ${allSubs.length} subtitles.`);
       return { subtitles: allSubs };
     } catch (err) {
-      log('warn', `[Nyaa] Failed: ${err.message}`);
+      log('warn', `[NyaaSI] Failed: ${err.message}`);
       return { subtitles: [] };
     }
   }

@@ -8,7 +8,7 @@ const cheerio = require('cheerio');
 
 class NekoBTProvider extends BaseProvider {
   constructor() {
-    super('nekobt', { enabled: true });
+    super('NekoBT', { enabled: true }); // Nome alterado
   }
 
   async search(query) {
@@ -48,7 +48,7 @@ class NekoBTProvider extends BaseProvider {
             id: `nekobt-${subId}`,
             url: finalUrl,
             language: normalizeLang(sub.language),
-            source: 'nekobt',
+            source: 'NekoBT',
             fileName: sub.fileName,
             format: sub.format,
             needsConversion: sub.format !== 'srt'

@@ -5,7 +5,8 @@ function freeSources() {
     <div class="sources-logos">
         <div class="source-badge"><span class="dot"></span>OpenSubtitles (Keyless)</div>
         <div class="source-badge"><span class="dot"></span>AnimeTosho</div>
-        <div class="source-badge"><span class="dot"></span>Erai-Raws (Anime)</div>
+        <div class="source-badge"><span class="dot"></span>NyaaSI (Anime Torrents)</div>
+        <div class="source-badge"><span class="dot"></span>NekoBT (Anime Torrents)</div>
     </div>
 </div>
   `;

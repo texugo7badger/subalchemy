@@ -1,4 +1,5 @@
 const { log } = require('../logger');
+const AdmZip = require('adm-zip');
 
 const LANG_MAP = {
     'pt-br': 'pob', 'ptbr': 'pob', 'portuguese-brazil': 'pob', 'pb': 'pob', 'pt': 'pob', 'por': 'pob', 'portuguese': 'pob', 'português': 'pob',
@@ -32,76 +33,105 @@ function detectLanguage(fileName, content) {
 }
 
 async function extractSubs(torrentSource) {
-    const WebTorrent = (await import('webtorrent')).default;
-    const client = new WebTorrent();
-    
-    return new Promise((resolve) => {
-        let resolved = false;
-        const timeout = 25000;
+    let client;
+    try {
+        const WebTorrent = (await import('webtorrent')).default;
+        client = new WebTorrent();
+        
+        return await new Promise((resolve) => {
+            let resolved = false;
+            const timeout = 25000;
 
-        const timer = setTimeout(() => {
-            if (!resolved) {
-                resolved = true;
-                log('warn', `[Torrent] Timeout extracting subs`);
-                client.destroy(() => resolve([]));
-            }
-        }, timeout);
-
-        try {
-            client.add(torrentSource, { path: '/tmp' }, (torrent) => {
-                if (resolved) {
-                    try { torrent.destroy(); } catch(e) {}
-                    return;
+            const timer = setTimeout(() => {
+                if (!resolved) {
+                    resolved = true;
+                    log('warn', `[Torrent] Timeout extracting subs`);
+                    if (client) client.destroy(() => resolve([]));
                 }
-                const subtitleFiles = torrent.files.filter(file => 
-                    /\.(ass|ssa|srt|vtt)$/i.test(file.name)
-                );
-                
-                if (subtitleFiles.length === 0) {
-                    if (!resolved) { 
-                        resolved = true; 
-                        clearTimeout(timer); 
-                        torrent.destroy(); 
-                        client.destroy(() => resolve([])); 
+            }, timeout);
+
+            try {
+                client.add(torrentSource, { path: '/tmp' }, (torrent) => {
+                    if (resolved) {
+                        try { torrent.destroy(); } catch(e) {}
+                        return;
                     }
-                    return;
-                }
-                
-                const subs = [];
-                let completed = 0;
-                
-                subtitleFiles.forEach((file) => {
-                    file.getBuffer((err, buffer) => {
-                        if (!err && !resolved) {
-                            const content = buffer.toString('utf-8');
-                            subs.push({
-                                fileName: file.name,
-                                content: content,
-                                format: file.name.split('.').pop().toLowerCase(),
-                                language: detectLanguage(file.name, content)
-                            });
+                    
+                    // Procura por arquivos de legenda OU arquivos .zip
+                    const targetFiles = torrent.files.filter(file => 
+                        /\.(ass|ssa|srt|vtt|zip)$/i.test(file.name)
+                    );
+                    
+                    if (targetFiles.length === 0) {
+                        if (!resolved) { 
+                            resolved = true; 
+                            clearTimeout(timer); 
+                            torrent.destroy(); 
+                            client.destroy(() => resolve([])); 
                         }
-                        completed++;
-                        if (completed === subtitleFiles.length) {
-                            if (!resolved) {
-                                resolved = true;
-                                clearTimeout(timer);
-                                torrent.destroy();
-                                client.destroy(() => resolve(subs));
+                        return;
+                    }
+                    
+                    const subs = [];
+                    let completed = 0;
+                    
+                    targetFiles.forEach((file) => {
+                        file.getBuffer((err, buffer) => {
+                            if (!err && !resolved) {
+                                if (file.name.toLowerCase().endsWith('.zip')) {
+                                    try {
+                                        const zip = new AdmZip(buffer);
+                                        zip.getEntries().forEach(entry => {
+                                            if (/\.(ass|ssa|srt|vtt)$/i.test(entry.entryName)) {
+                                                const content = entry.getData().toString('utf-8');
+                                                subs.push({
+                                                    fileName: entry.entryName,
+                                                    content: content,
+                                                    format: entry.entryName.split('.').pop().toLowerCase(),
+                                                    language: detectLanguage(entry.entryName, content)
+                                                });
+                                            }
+                                        });
+                                    } catch (e) {
+                                        log('warn', `[Torrent] Failed to extract zip: ${e.message}`);
+                                    }
+                                } else {
+                                    const content = buffer.toString('utf-8');
+                                    subs.push({
+                                        fileName: file.name,
+                                        content: content,
+                                        format: file.name.split('.').pop().toLowerCase(),
+                                        language: detectLanguage(file.name, content)
+                                    });
+                                }
                             }
-                        }
+                            completed++;
+                            if (completed === targetFiles.length) {
+                                if (!resolved) {
+                                    resolved = true;
+                                    clearTimeout(timer);
+                                    torrent.destroy();
+                                    client.destroy(() => resolve(subs));
+                                }
+                            }
+                        });
                     });
                 });
-            });
-        } catch (err) {
-            log('error', `[Torrent] WebTorrent error: ${err.message}`);
-            if (!resolved) {
-                resolved = true;
-                clearTimeout(timer);
-                client.destroy(() => resolve([]));
+            } catch (err) {
+                log('error', `[Torrent] WebTorrent error: ${err.message}`);
+                if (!resolved) {
+                    resolved = true;
+                    clearTimeout(timer);
+                    client.destroy(() => resolve([]));
+                }
             }
-        }
-    });
+        });
+    } catch (err) {
+        log('error', `[Torrent] WebTorrent error: ${err.message}`);
+        return [];
+    } finally {
+        if (client) client.destroy();
+    }
 }
 
 module.exports = { normalizeLang, detectLanguage, extractSubs };
