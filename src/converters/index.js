@@ -8,6 +8,10 @@ const { log } = require('../logger');
 
 async function convertToSrt(sub) {
   try {
+    // Define o Referer com base no domínio da URL
+    const urlObj = new URL(sub.url);
+    const referer = urlObj.origin + '/';
+
     const response = await axios.get(sub.url, { 
       responseType: 'arraybuffer',
       timeout: 10000,
@@ -15,7 +19,7 @@ async function convertToSrt(sub) {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
-        'Referer': 'https://www.google.com/'
+        'Referer': referer
       }
     });
     

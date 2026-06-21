@@ -33,7 +33,6 @@ class OpenSubtitlesProvider extends BaseProvider {
       const response = await axios.get(url, {
         headers: { 
           'X-User-Agent': 'VLSub 0.10.3', 
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
           'Accept': 'application/json' 
         },
         timeout: 10000

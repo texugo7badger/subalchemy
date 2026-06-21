@@ -16,8 +16,8 @@ class WyzieProvider extends BaseProvider {
     if (query.searchQuery) params.title = query.searchQuery;
 
     try {
-      // CORREÇÃO: Novo domínio da API Wyzie
-      const response = await axios.get('https://api.wyzie.nl/v1/subs', { params, timeout: 8000 });
+      // CORREÇÃO: Domínio correto do Wyzie
+      const response = await axios.get('https://sub.wyzie.io/api/v1/subs', { params, timeout: 8000 });
       if (!Array.isArray(response.data)) return { subtitles: [] };
 
       return {
