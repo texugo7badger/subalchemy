@@ -9,7 +9,6 @@ const cheerio = require('cheerio');
 class NyaaProvider extends BaseProvider {
   constructor() {
     super('nyaa', { enabled: true });
-    this.priority = 80;
   }
 
   async search(query) {
@@ -17,27 +16,28 @@ class NyaaProvider extends BaseProvider {
 
     try {
       const searchQuery = `${query.searchQuery}`;
-      const url = `https://nyaa.si/?q=${encodeURIComponent(searchQuery)}&c=1_2&f=0`;
+      const url = `https://nyaa.si/?page=rss&q=${encodeURIComponent(searchQuery)}&c=1_2&f=0`;
       
       const response = await axios.get(url, { 
         timeout: 8000, 
         headers: { 'User-Agent': 'Mozilla/5.0' } 
       });
       
-      const $ = cheerio.load(response.data);
-      const torrents = [];
+      const $ = cheerio.load(response.data, { xmlMode: true });
+      const magnets = [];
 
-      // Pega os primeiros 5 resultados para não sobrecarregar
-      $('tr.default, tr.success').slice(0, 5).each((i, el) => {
-        const title = $(el).find('.torrent-list-link').text().trim();
-        const magnet = $(el).find('a[href^="magnet:?"]').attr('href');
-        if (magnet && (title.toLowerCase().includes('erai-raws') || title.toLowerCase().includes('subsplease'))) {
-          torrents.push({ title, magnet });
+      // Extrai os infoHashes do RSS para construir os magnet links
+      $('item').slice(0, 3).each((i, el) => {
+        const infoHash = $(el).find('infoHash').text();
+        const title = $(el).find('title').text();
+        if (infoHash) {
+          const magnet = `magnet:?xt=urn:btih:${infoHash}&dn=${encodeURIComponent(title)}&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce&tr=udp%3A%2F%2Fopen.demonii.com%3A1337%2Fannounce&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A80%2Fannounce`;
+          magnets.push({ title, magnet });
         }
       });
 
       const allSubs = [];
-      for (const torrent of torrents) {
+      for (const torrent of magnets) {
         log('info', `[Nyaa] Extracting subs from: ${torrent.title}`);
         const extractedSubs = await extractSubsFromMagnet(torrent.magnet);
         
@@ -51,7 +51,7 @@ class NyaaProvider extends BaseProvider {
           allSubs.push(new SubtitleResult({
             id: `nyaa-${subId}`,
             url: finalUrl,
-            language: normalizeLang(sub.language) || 'eng',
+            language: normalizeLang(sub.language),
             source: 'nyaa',
             fileName: sub.fileName,
             format: sub.format,

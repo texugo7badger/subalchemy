@@ -9,7 +9,6 @@ const cheerio = require('cheerio');
 class NekoBTProvider extends BaseProvider {
   constructor() {
     super('nekobt', { enabled: true });
-    this.priority = 75;
   }
 
   async search(query) {
@@ -25,16 +24,16 @@ class NekoBTProvider extends BaseProvider {
       });
       
       const $ = cheerio.load(response.data);
-      const torrents = [];
+      const magnets = [];
 
-      $('a[href^="magnet:?"]').slice(0, 5).each((i, el) => {
+      $('a[href^="magnet:?"]').slice(0, 3).each((i, el) => {
         const magnet = $(el).attr('href');
-        const title = $(el).closest('tr').find('.torrent-name, .title').text().trim() || 'Unknown';
-        torrents.push({ title, magnet });
+        const title = $(el).attr('title') || 'Unknown';
+        magnets.push({ title, magnet });
       });
 
       const allSubs = [];
-      for (const torrent of torrents) {
+      for (const torrent of magnets) {
         log('info', `[NekoBT] Extracting subs from: ${torrent.title}`);
         const extractedSubs = await extractSubsFromMagnet(torrent.magnet);
         
@@ -48,7 +47,7 @@ class NekoBTProvider extends BaseProvider {
           allSubs.push(new SubtitleResult({
             id: `nekobt-${subId}`,
             url: finalUrl,
-            language: normalizeLang(sub.language) || 'eng',
+            language: normalizeLang(sub.language),
             source: 'nekobt',
             fileName: sub.fileName,
             format: sub.format,

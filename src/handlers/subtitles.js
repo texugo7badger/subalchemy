@@ -48,15 +48,15 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   const { subtitles } = await providerManager.searchAll(query);
   log('info', `[Handler] Found ${subtitles.length} total subtitles before language filter.`);
 
-  // FILTRO RIGOROSO com mapeamento estendido
+  // FILTRO RIGOROSO E PERMISSIVO para PT-BR
   const ptVariations = ['pob', 'por', 'pb', 'pt', 'pt-br', 'ptbr', 'portuguese', 'português'];
   const filteredSubs = subtitles.filter(sub => {
-    const subLang = normalizeLang(sub.language);
+    const subLang = normalizeLang(sub.language).toLowerCase();
     
-    // Se o usuário pediu PT-BR, aceita qualquer variação de português
-    if (requestedLangs.includes('pob') && ptVariations.includes(subLang)) return true;
-    // Se o usuário pediu Inglês, aceita eng
-    if (requestedLangs.includes('eng') && subLang === 'eng') return true;
+    if (requestedLangs.some(r => ptVariations.includes(r))) {
+        if (ptVariations.includes(subLang)) return true;
+    }
+    if (requestedLangs.includes('eng') && (subLang === 'eng' || subLang === 'en')) return true;
     
     return requestedLangs.includes(subLang);
   });
@@ -69,6 +69,11 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
       const langName = getLanguageName(sub.language);
       const subName = `SubAlchemy SRT [${langName}]`;
       
+      // Se a URL já aponta para o nosso proxy (caso do Nyaa/NekoBT), não converte de novo
+      if (sub.url.includes('/srt/')) {
+         return { id: sub.id, url: sub.url, lang: sub.language, name: subName };
+      }
+
       if (OS_DIRECT_URL_RE.test(sub.url) && isStremioClient(userAgent)) {
         return { 
           id: sub.id, 
