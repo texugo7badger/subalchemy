@@ -1,6 +1,6 @@
 # SubAlchemy 🧙‍♂️
 
-**Version 1.0.7**
+**Version 1.0.8**
 
 A Stremio addon that acts as a universal SRT converter and aggregator. It fetches subtitles from multiple cloud-friendly sources, supports Anime via Kitsu API, and converts modern formats (VTT, ASS/SSA) into the classic SRT format on-the-fly.
 
@@ -85,8 +85,13 @@ This addon is optimized for free-tier deployment on Render.com.
 ## 📜 License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. Feel free to contribute, open issues, or submit pull requests!
 
----
+<br>
 
-Did this magic solve your TV's subtitle problem? ✨ If you can, buy me a coffee to keep the cauldron bubbling!
-[![Buy Me a Coffee](https://storage.ko-fi.com/cdn/kofi5.png?v=6)](https://ko-fi.com/G4H521S5GK)
+<div align="center">
+  <sub><i>Did this magic solve your TV's subtitle problem? ✨<br>If you can, buy me a coffee to keep the cauldron bubbling!</i></sub>
+  <br><br>
+  <a href="https://ko-fi.com/G4H521S5GK">
+    <img src="https://storage.ko-fi.com/cdn/kofi5.png?v=6" height="28" alt="Buy Me a Coffee at ko-fi.com" />
+  </a>
+</div>
 ```
