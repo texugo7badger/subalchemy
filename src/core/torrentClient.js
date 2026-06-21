@@ -34,9 +34,9 @@ async function getTorrent(magnetLink) {
 
     const infoHash = extractInfoHash(magnetLink);
     
-    // 1. Verifica no próprio WebTorrent se já tem
+    // 1. Verifica no próprio WebTorrent se já tem e se está pronto
     const existingTorrent = client.get(infoHash);
-    if (existingTorrent) {
+    if (existingTorrent && existingTorrent.ready) {
         return existingTorrent;
     }
     
@@ -47,28 +47,35 @@ async function getTorrent(magnetLink) {
 
     const promise = new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-            reject(new Error('Timeout adding torrent'));
+            reject(new Error('Timeout adding torrent (metadata)'));
             activeTorrents.delete(infoHash);
-        }, 15000);
+        }, 20000);
 
         try {
-            const torrent = client.add(magnetLink, {}, (t) => {
+            const torrent = client.add(magnetLink, { dht: false, pex: false });
+            
+            const onReady = () => {
                 clearTimeout(timeout);
+                torrent.removeListener('error', onError);
                 // Limpa da memória após 5 minutos
                 setTimeout(() => {
-                    try { t.destroy(); } catch(e) {}
+                    try { torrent.destroy(); } catch(e) {}
                     activeTorrents.delete(infoHash);
                 }, 300000);
-                resolve(t);
-            });
-            
-            // Captura erros específicos deste torrent
-            torrent.on('error', (err) => {
+                resolve(torrent);
+            };
+
+            const onError = (err) => {
                 log('warn', `[TorrentClient] Torrent error suppressed: ${err.message}`);
                 clearTimeout(timeout);
                 activeTorrents.delete(infoHash);
+                try { torrent.destroy(); } catch(e) {}
                 reject(err);
-            });
+            };
+
+            torrent.once('ready', onReady);
+            torrent.once('error', onError);
+
         } catch (err) {
             clearTimeout(timeout);
             reject(err);
