@@ -6,6 +6,7 @@ function getConfigureHTML(baseUrl) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/subalchemy-logo.png">
     <title>SubAlchemy Configuration</title>
     <style>
         /* Custom Magical Scrollbars */
@@ -161,7 +162,7 @@ function getConfigureHTML(baseUrl) {
     <div class="container">
         <img src="/subalchemy-logo.png" alt="SubAlchemy Logo" class="logo">
         <h1>SubAlchemy</h1>
-        <p class="subtitle">Universal SRT Converter for Tizen 9 & Anime</p>
+        <p class="subtitle">Universal SRT Converter for Tizen 9</p>
         <p class="description">For the best experience across all your devices, we recommend configuring this addon with the same API keys you use in <a href="https://stremio-addons.net/addons/subsense" target="_blank">SubSense</a>.</p>
         
         <div class="form-group">
@@ -218,19 +219,15 @@ function getConfigureHTML(baseUrl) {
         <button class="install-btn" onclick="installAddon()">Install in Stremio</button>
 
         <div class="sources-section">
-            <h3>Active Aggregation Sources</h3>
+            <h3>Active Free Sources (No Config Required)</h3>
             <div class="sources-logos">
-                <div class="source-badge"><span class="dot"></span>OpenSubtitles</div>
-                <div class="source-badge"><span class="dot"></span>SubDL</div>
-                <div class="source-badge"><span class="dot"></span>SubSource</div>
-                <div class="source-badge"><span class="dot"></span>Wyzie</div>
                 <div class="source-badge"><span class="dot"></span>AnimeTosho</div>
             </div>
         </div>
 
         <div class="donation">
             <p>Did this magic solve your TV's subtitle problem? ✨<br>If you can, buy me a coffee to keep the cauldron bubbling!</p>
-            <a href='https://ko-fi.com/G4H521S5GK' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi5.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
+            <a href='https://ko-fi.com/G4H521S5GK' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
         </div>
     </div>
 
