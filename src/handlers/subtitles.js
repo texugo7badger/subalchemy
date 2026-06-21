@@ -6,7 +6,7 @@ const { getCinemetaTitle } = require('../meta/cinemeta');
 const { getKitsuTitle } = require('../meta/kitsu');
 const { log } = require('../logger');
 const { OS_DIRECT_URL_RE } = require('../constants');
-const { normalizeLang, getLanguageName } = require('../languages'); // Importa getLanguageName
+const { normalizeLang, getLanguageName } = require('../languages');
 const crypto = require('crypto');
 
 async function handleSubtitlesRequest(args, config, baseUrl) {
@@ -23,7 +23,6 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
     log('info', `[Handler] IMDB ID: ${parsed.imdbId}. Cinemeta Title: ${searchQuery}`);
   }
 
-  // Normaliza os idiomas solicitados pelo usuário
   let requestedLangs = ['eng'];
   if (config.languages) {
     let langArray = [];
@@ -38,7 +37,7 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   const query = {
     ...parsed,
     searchQuery,
-    languages: requestedLangs, // Envia a lista normalizada para os providers
+    languages: requestedLangs,
     apiKeys: {
       subdlApiKey: config.subdlApiKey,
       subsourceApiKey: config.subsourceApiKey,
@@ -49,9 +48,16 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   const { subtitles } = await providerManager.searchAll(query);
   log('info', `[Handler] Found ${subtitles.length} total subtitles before language filter.`);
 
-  // FILTRO RIGOROSO: Garante que apenas os idiomas solicitados passem
+  // FILTRO RIGOROSO com mapeamento estendido
+  const ptVariations = ['pob', 'por', 'pb', 'pt', 'pt-br', 'ptbr', 'portuguese', 'português'];
   const filteredSubs = subtitles.filter(sub => {
     const subLang = normalizeLang(sub.language);
+    
+    // Se o usuário pediu PT-BR, aceita qualquer variação de português
+    if (requestedLangs.includes('pob') && ptVariations.includes(subLang)) return true;
+    // Se o usuário pediu Inglês, aceita eng
+    if (requestedLangs.includes('eng') && subLang === 'eng') return true;
+    
     return requestedLangs.includes(subLang);
   });
 
@@ -63,7 +69,6 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
       const langName = getLanguageName(sub.language);
       const subName = `SubAlchemy SRT [${langName}]`;
       
-      // If it's an OpenSubtitles URL and client is Stremio, let Stremio's streaming server handle it
       if (OS_DIRECT_URL_RE.test(sub.url) && isStremioClient(userAgent)) {
         return { 
           id: sub.id, 
@@ -73,7 +78,6 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
         };
       }
 
-      // Otherwise, download, convert to SRT, cache, and serve via proxy
       if (sub.needsConversion || sub.format !== 'srt' || !isStremioClient(userAgent)) {
         const srtContent = await convertToSrt(sub);
         if (!srtContent) return null;

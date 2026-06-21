@@ -1,22 +1,23 @@
 const { BaseProvider, SubtitleResult } = require('./BaseProvider');
 const { log } = require('../logger');
-const { normalizeLang } = require('../languages');
+const { extractSubsFromMagnet, normalizeLang } = require('../utils/subtitleUtils');
+const subtitleStore = require('../cache/SubtitleStore');
+const crypto = require('crypto');
 const axios = require('axios');
 const cheerio = require('cheerio');
 
 class NekoBTProvider extends BaseProvider {
   constructor() {
     super('nekobt', { enabled: true });
-    this.priority = 75; 
+    this.priority = 75;
   }
 
   async search(query) {
     if (!query.searchQuery) return { subtitles: [] };
 
     try {
-      // O NekoBT não tem um RSS tão amigável quanto o Nyaa, então usamos a busca HTML
       const searchQuery = `${query.searchQuery}`;
-      const url = `https://nekobt.net/?s=${encodeURIComponent(searchQuery)}`;
+      const url = `https://nekobt.to/?q=${encodeURIComponent(searchQuery)}`;
       
       const response = await axios.get(url, { 
         timeout: 8000, 
@@ -24,34 +25,40 @@ class NekoBTProvider extends BaseProvider {
       });
       
       const $ = cheerio.load(response.data);
-      const subs = [];
+      const torrents = [];
 
-      // O NekoBT geralmente lista os torrents. Procuramos por links de anexos na página.
-      // Nota: A estrutura do NekoBT pode mudar, então buscamos de forma genérica por links de legendas.
-      $('a').each((i, el) => {
-        const href = $(el).attr('href');
-        if (href && (href.endsWith('.ass') || href.endsWith('.srt') || href.endsWith('.zip'))) {
-          const ext = href.split('.').pop().toLowerCase();
-          const fileName = href.split('/').pop().toLowerCase();
-          let lang = 'eng';
-          if (fileName.includes('por') || fileName.includes('ptbr') || fileName.includes('pt-br') || fileName.includes('pob')) {
-            lang = 'pob';
-          }
-          
-          subs.push(new SubtitleResult({
-            id: `nekobt-${href}`,
-            url: href,
-            language: normalizeLang(lang),
-            source: 'nekobt',
-            fileName: fileName,
-            format: ext,
-            needsConversion: ext !== 'srt'
-          }));
-        }
+      $('a[href^="magnet:?"]').slice(0, 5).each((i, el) => {
+        const magnet = $(el).attr('href');
+        const title = $(el).closest('tr').find('.torrent-name, .title').text().trim() || 'Unknown';
+        torrents.push({ title, magnet });
       });
 
-      log('info', `[NekoBT] Found ${subs.length} subtitles.`);
-      return { subtitles: subs };
+      const allSubs = [];
+      for (const torrent of torrents) {
+        log('info', `[NekoBT] Extracting subs from: ${torrent.title}`);
+        const extractedSubs = await extractSubsFromMagnet(torrent.magnet);
+        
+        for (const sub of extractedSubs) {
+          const subId = crypto.createHash('md5').update(torrent.magnet + sub.fileName).digest('hex').slice(0, 20);
+          subtitleStore.set(subId, { content: sub.content, lang: sub.language || 'eng' });
+          
+          const baseUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 7000}`;
+          const finalUrl = `${baseUrl}/srt/${subId}.srt`;
+
+          allSubs.push(new SubtitleResult({
+            id: `nekobt-${subId}`,
+            url: finalUrl,
+            language: normalizeLang(sub.language) || 'eng',
+            source: 'nekobt',
+            fileName: sub.fileName,
+            format: sub.format,
+            needsConversion: sub.format !== 'srt'
+          }));
+        }
+      }
+
+      log('info', `[NekoBT] Found ${allSubs.length} subtitles.`);
+      return { subtitles: allSubs };
     } catch (err) {
       log('warn', `[NekoBT] Failed: ${err.message}`);
       return { subtitles: [] };
