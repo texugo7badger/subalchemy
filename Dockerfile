@@ -1,7 +1,7 @@
 FROM node:20-slim
 
-# Instala dependências do sistema e curl
-RUN apt-get update && apt-get install -y curl gnupg lsb-release sudo net-tools
+# Instala dependências do sistema, curl e dbus (necessário para o warp-cli)
+RUN apt-get update && apt-get install -y curl gnupg lsb-release sudo net-tools dbus
 
 # Adiciona o repositório da Cloudflare e instala o WARP
 RUN curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
@@ -16,7 +16,7 @@ COPY package*.json ./
 RUN npm install
 COPY . .
 
-# Expõe a porta que o Render vai usar
+# Expõe a porta (Render usa 10000 por padrão)
 EXPOSE 10000
 
 # Script para iniciar o WARP e o Node
