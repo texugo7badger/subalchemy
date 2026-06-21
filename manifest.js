@@ -1,7 +1,7 @@
 const packageJson = require('./package.json');
 
 function generateManifest(config = {}) {
-  const languages = config.languages || [];
+  const languages = config.languages ? config.languages.split(',') : [];
   const langDisplay = languages.length > 0 ? ` (${languages.join(', ')})` : '';
   
   return {
@@ -9,6 +9,7 @@ function generateManifest(config = {}) {
     version: packageJson.version,
     name: "SubAlchemy",
     logo: `${process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 7000}`}/assets/subalchemy-logo.png`,
+    background: "https://images.unsplash.com/photo-1570284613060-766c33850e00?q=80&w=1470&auto=format&fit=crop",
     description: `Universal SRT Converter for Tizen 9 & Anime${langDisplay}. Fetches from multiple sources and converts VTT/ASS/ZIP to SRT.`,
     resources: ["subtitles"],
     types: ["movie", "series"],
