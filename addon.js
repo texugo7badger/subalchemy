@@ -2,10 +2,9 @@
 require('dotenv').config();
 const { addonBuilder, getRouter } = require('stremio-addon-sdk');
 const axios = require('axios');
-const http = require('http');
-const url = require('url');
 const fs = require('fs');
 const path = require('path');
+const express = require('express'); // Importando Express
 
 // Import modules
 const { vttToSrt, assToSrt, removeAds } = require('./src/converters');
@@ -26,7 +25,7 @@ const subtitlesCache = new Map();
 // ==========================================
 const manifest = {
     id: "org.subalchemy.addon",
-    version: "1.0.1",
+    version: "1.0.2",
     name: "SubAlchemy",
     description: "Universal SRT Converter. Fetches from multiple sources, supports Anime (Kitsu), and converts VTT/ASS to SRT.",
     resources: ["subtitles"],
@@ -88,12 +87,10 @@ builder.defineSubtitlesHandler(async ({ id, type, config }) => {
 
     const subtitlesPromises = uniqueSubs.map(async (sub) => {
         try {
-            // Se for SRT direto, baixamos, limpamos os anúncios e servimos pelo nosso cache
             if (sub.fileName.toLowerCase().endsWith('.srt') || sub.url.toLowerCase().includes('.srt')) {
                 const fileRes = await axios.get(sub.url, { responseType: 'text' });
                 let srtContent = fileRes.data;
                 
-                // Aplica a limpeza de anúncios
                 srtContent = removeAds(srtContent);
                 
                 const subId = Buffer.from(sub.url).toString('base64').slice(0, 20);
@@ -102,7 +99,6 @@ builder.defineSubtitlesHandler(async ({ id, type, config }) => {
                 return { url: `${BASE_URL}/srt/${subId}.srt`, lang: sub.lang };
             }
             
-            // Se for VTT ou ASS, baixa, converte para SRT, limpa anúncios e serve no cache
             if (sub.fileName.toLowerCase().endsWith('.vtt') || sub.fileName.toLowerCase().endsWith('.ass')) {
                 const fileRes = await axios.get(sub.url, { responseType: 'text' });
                 let srtContent = "";
@@ -131,68 +127,62 @@ builder.defineSubtitlesHandler(async ({ id, type, config }) => {
 });
 
 // ==========================================
-// HTTP SERVER AND CUSTOM ROUTES
+// EXPRESS SERVER AND CUSTOM ROUTES
 // ==========================================
+const app = express();
 const stremioRouter = getRouter(builder.getInterface());
 
-const server = http.createServer((req, res) => {
-    const parsedUrl = url.parse(req.url, true);
-
-    // 1. Serve Logo
-    if (parsedUrl.pathname === '/subalchemy-logo.png') {
-        try {
-            const img = fs.readFileSync(path.join(__dirname, 'subalchemy-logo.png'));
-            res.writeHead(200, { 'Content-Type': 'image/png' });
-            res.end(img);
-            return;
-        } catch (e) { res.writeHead(404); res.end('Image not found'); return; }
-    }
-
-    // 2. Serve Custom Config Page
-    if (parsedUrl.pathname === '/' || parsedUrl.pathname === '/configure') {
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(getConfigureHTML(BASE_URL));
-        return;
-    }
-
-    // 3. API Test Route
-    if (parsedUrl.pathname === '/test-api') {
-        const { type, key } = parsedUrl.query;
-        if (!key) { res.writeHead(400); res.end(JSON.stringify({ valid: false })); return; }
-
-        (async () => {
-            try {
-                if (type === 'os') {
-                    await axios.get('https://api.opensubtitles.com/api/v1/subtitles?imdb_id=tt0111161', {
-                        headers: { 'Apikey': key, 'User-Agent': 'SubAlchemy Test' }
-                    });
-                } else if (type === 'subdl') {
-                    await axios.get('https://api.subdl.com/api/v1/subtitles?imdb_id=tt0111161', { params: { api_key: key } });
-                } 
-                // Add subsource/wyzie tests if APIs become available
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ valid: true }));
-            } catch (e) {
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ valid: false }));
-            }
-        })();
-        return;
-    }
-
-    // 4. Serve SRT Cache
-    if (parsedUrl.pathname.startsWith('/srt/')) {
-        const subId = parsedUrl.pathname.replace('/srt/', '').replace('.srt', '');
-        const cachedSub = subtitlesCache.get(subId);
-        if (cachedSub) {
-            res.writeHead(200, { 'Content-Type': 'application/x-subrip; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
-            res.end(cachedSub.content);
-            return;
-        } else { res.writeHead(404); res.end('Not found'); return; }
-    }
-
-    // 5. Fallback to Stremio SDK
-    stremioRouter(req, res);
+// 1. Serve Logo
+app.get('/subalchemy-logo.png', (req, res) => {
+    try {
+        const img = fs.readFileSync(path.join(__dirname, 'subalchemy-logo.png'));
+        res.writeHead(200, { 'Content-Type': 'image/png' });
+        res.end(img);
+    } catch (e) { res.status(404).send('Image not found'); }
 });
 
-server.listen(PORT, () => console.log(`[SubAlchemy] Addon accessible at: ${BASE_URL}/manifest.json`));
+// 2. Serve Custom Config Page
+app.get(['/', '/configure'], (req, res) => {
+    res.set('Content-Type', 'text/html');
+    res.send(getConfigureHTML(BASE_URL));
+});
+
+// 3. API Test Route
+app.get('/test-api', async (req, res) => {
+    const { type, key } = req.query;
+    if (!key) return res.status(400).json({ valid: false });
+
+    try {
+        if (type === 'os') {
+            await axios.get('https://api.opensubtitles.com/api/v1/subtitles?imdb_id=tt0111161', {
+                headers: { 'Apikey': key, 'User-Agent': 'SubAlchemy v1.0.2' }
+            });
+        } else if (type === 'subdl') {
+            await axios.get('https://api.subdl.com/api/v1/subtitles?imdb_id=tt0111161', { params: { api_key: key } });
+        } 
+        res.json({ valid: true });
+    } catch (e) {
+        res.json({ valid: false });
+    }
+});
+
+// 4. Serve SRT Cache
+app.get('/srt/:subId', (req, res) => {
+    const subId = req.params.subId.replace('.srt', '');
+    const cachedSub = subtitlesCache.get(subId);
+    if (cachedSub) {
+        res.set('Content-Type', 'application/x-subrip; charset=utf-8');
+        res.set('Access-Control-Allow-Origin', '*');
+        res.send(cachedSub.content);
+    } else {
+        res.status(404).send('Not found');
+    }
+});
+
+// 5. Fallback to Stremio SDK Router (handles /manifest.json, etc)
+app.use(stremioRouter);
+
+// Start server
+app.listen(PORT, () => {
+    console.log(`[SubAlchemy] Addon accessible at: ${BASE_URL}/manifest.json`);
+});
