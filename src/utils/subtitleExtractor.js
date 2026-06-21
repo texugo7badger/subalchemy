@@ -10,7 +10,7 @@ function formatTime(ms) {
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')},${String(milliseconds).padStart(3, '0')}`;
 }
 
-async function extractSubtitles(magnetLink, timeout = 45000) {
+async function extractSubtitles(magnetLink, timeout = 30000) {
     log('info', `[SubtitleExtractor] Starting extraction for ${magnetLink.substring(0, 30)}...`);
     
     return new Promise(async (resolve) => {
@@ -26,7 +26,7 @@ async function extractSubtitles(magnetLink, timeout = 45000) {
         try {
             const torrent = await getTorrent(magnetLink);
             
-            // Encontra o maior arquivo .mkv (geralmente o vídeo)
+            // Encontra o maior arquivo .mkv
             const videoFile = torrent.files.reduce((prev, curr) => {
                 return prev && prev.length > curr.length ? prev : curr;
             }, null);
@@ -37,7 +37,9 @@ async function extractSubtitles(magnetLink, timeout = 45000) {
                 return;
             }
 
-            const stream = videoFile.createReadStream();
+            // OTIMIZAÇÃO: Baixa apenas os primeiros 10MB do arquivo.
+            // No MKV, todas as faixas de legenda ficam no início do arquivo.
+            const stream = videoFile.createReadStream({ start: 0, end: 10485760 });
             const parser = new SubtitleParser();
             
             const tracksInfo = [];
@@ -68,6 +70,7 @@ async function extractSubtitles(magnetLink, timeout = 45000) {
                     if (subtitlesByTrack[track.number] && subtitlesByTrack[track.number].length > 0) {
                         const content = subtitlesByTrack[track.number].join('\n');
                         results.push({
+                            // Usa o nome da faixa se não tiver language code
                             language: track.language || track.name || 'eng',
                             content: content,
                             format: 'srt',
