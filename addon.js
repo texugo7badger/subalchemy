@@ -8,7 +8,7 @@ const express = require('express');
 
 // Import modules
 const { vttToSrt, assToSrt, removeAds } = require('./src/converters');
-const { getKitsuTitle, searchOpenSubtitles, searchSubDL, searchSubSource, searchWyzie, searchAnimeTosho } = require('./src/sources');
+const { getKitsuTitle, searchSubDL, searchSubSource, searchWyzie, searchAnimeTosho } = require('./src/sources');
 const { getConfigureHTML } = require('./src/configurePage');
 
 // ==========================================
@@ -25,16 +25,15 @@ const subtitlesCache = new Map();
 // ==========================================
 const manifest = {
     id: "org.subalchemy.addon",
-    version: "1.0.7",
+    version: "1.0.8",
     name: "SubAlchemy",
-    description: "Universal SRT Converter. Fetches from multiple sources, supports Anime (Kitsu), and converts VTT/ASS to SRT.",
+    description: "Universal SRT Converter. Fetches from multiple cloud-friendly sources, supports Anime, and converts VTT/ASS to SRT.",
     resources: ["subtitles"],
     types: ["movie", "series"],
     idPrefixes: ["tt", "kitsu"],
     catalogs: [],
     behaviorHints: { configurable: true, configurationRequired: false },
     config: [
-        { key: 'osApiKey', type: 'string', title: 'OpenSubtitles API Key', default: process.env.OPENSUBTITLES_API_KEY || '' },
         { key: 'subdlApiKey', type: 'string', title: 'SubDL API Key', default: process.env.SUBDL_API_KEY || '' },
         { key: 'subsourceApiKey', type: 'string', title: 'SubSource API Key', default: process.env.SUBSOURCE_API_KEY || '' },
         { key: 'wyzieApiKey', type: 'string', title: 'Wyzie API Key', default: process.env.WYZIE_API_KEY || '' },
@@ -61,7 +60,6 @@ builder.defineSubtitlesHandler(async ({ id, type, config }) => {
     }
     
     const apiKeys = {
-        osApiKey: config?.osApiKey || process.env.OPENSUBTITLES_API_KEY,
         subdlApiKey: config?.subdlApiKey || process.env.SUBDL_API_KEY,
         subsourceApiKey: config?.subsourceApiKey || process.env.SUBSOURCE_API_KEY,
         wyzieApiKey: config?.wyzieApiKey || process.env.WYZIE_API_KEY
@@ -69,15 +67,14 @@ builder.defineSubtitlesHandler(async ({ id, type, config }) => {
     const languages = config?.languages || 'en,pt-br,es,fr,de,it,ja,zh,ru,ar,hi,ko';
 
     console.log("[SubAlchemy] Searching multiple sources...");
-    const [osSubs, subdlSubs, subsourceSubs, wyzieSubs, animeToshoSubs] = await Promise.all([
-        searchOpenSubtitles({ imdbId, query: searchQuery, type, apiKey: apiKeys.osApiKey, languages }),
+    const [subdlSubs, subsourceSubs, wyzieSubs, animeToshoSubs] = await Promise.all([
         searchSubDL({ imdbId, query: searchQuery, apiKey: apiKeys.subdlApiKey, languages }),
         searchSubSource({ query: searchQuery, apiKey: apiKeys.subsourceApiKey }),
         searchWyzie({ imdbId, query: searchQuery, apiKey: apiKeys.wyzieApiKey }),
         searchAnimeTosho({ query: searchQuery })
     ]);
 
-    const allSubs = [...osSubs, ...subdlSubs, ...subsourceSubs, ...wyzieSubs, ...animeToshoSubs];
+    const allSubs = [...subdlSubs, ...subsourceSubs, ...wyzieSubs, ...animeToshoSubs];
     const uniqueUrls = new Set();
     const uniqueSubs = allSubs.filter(sub => {
         if (uniqueUrls.has(sub.url)) return false;
@@ -153,22 +150,15 @@ app.get('/test-api', async (req, res) => {
     if (!key) return res.status(400).json({ valid: false });
 
     try {
-        if (type === 'os') {
-            await axios.get('https://api.opensubtitles.com/api/v1/subtitles?imdb_id=tt0111161', {
-                headers: { 
-                    'Apikey': key.trim(),
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                }
-            });
-        } else if (type === 'subdl') {
+        if (type === 'subdl') {
             await axios.get('https://api.subdl.com/api/v1/subtitles?imdb_id=tt0111161', { params: { api_key: key.trim() } });
         } 
+        // Add subsource/wyzie tests if APIs become available
         res.json({ valid: true });
     } catch (e) {
         const status = e.response?.status;
         const message = e.response?.data?.message || e.message;
         console.error(`[SubAlchemy] Test API Error (${type}):`, status, message);
-        // Retorna o erro para a tela mostrar ao usuário
         res.json({ valid: false, error: `Error ${status || ''}: ${message}` });
     }
 });

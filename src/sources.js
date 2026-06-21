@@ -31,30 +31,6 @@ async function getKitsuTitle(kitsuId) {
     return null;
 }
 
-async function searchOpenSubtitles({ imdbId, query, type, apiKey, languages }) {
-    if (!apiKey) return [];
-    const params = { languages: languages };
-    if (imdbId) params.imdb_id = imdbId;
-    if (query) params.query = query;
-    if (type === 'series') params.type = 'episode';
-    
-    try {
-        const response = await axios.get('https://api.opensubtitles.com/api/v1/subtitles', {
-            headers: { 
-                'Apikey': apiKey.trim(),
-                // Usando User-Agent de navegador para evitar bloqueios do OpenSubtitles
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }, 
-            params 
-        });
-        return response.data.data.map(sub => ({
-            url: sub.attributes.files[0].file_url,
-            fileName: sub.attributes.files[0].file_name || "",
-            lang: normalizeLang(sub.attributes.language)
-        }));
-    } catch (e) { console.error("[SubAlchemy] OS Error:", e.response?.status, e.response?.data?.message || e.message); return []; }
-}
-
 async function searchSubDL({ imdbId, query, apiKey, languages }) {
     if (!apiKey) return [];
     const params = { api_key: apiKey, languages: languages };
@@ -122,4 +98,4 @@ async function searchAnimeTosho({ query }) {
     } catch (e) { console.error("[SubAlchemy] AnimeTosho Error:", e.response?.status || e.message); return []; }
 }
 
-module.exports = { normalizeLang, getKitsuTitle, searchOpenSubtitles, searchSubDL, searchSubSource, searchWyzie, searchAnimeTosho };
+module.exports = { normalizeLang, getKitsuTitle, searchSubDL, searchSubSource, searchWyzie, searchAnimeTosho };

@@ -1,8 +1,8 @@
 # SubAlchemy 🧙‍♂️
 
-**Version 1.0.3**
+**Version 1.0.7**
 
-A Stremio addon that acts as a universal SRT converter and aggregator. It fetches subtitles from multiple sources, supports Anime via Kitsu API, and converts modern formats (VTT, ASS/SSA) into the classic SRT format on-the-fly.
+A Stremio addon that acts as a universal SRT converter and aggregator. It fetches subtitles from multiple cloud-friendly sources, supports Anime via Kitsu API, and converts modern formats (VTT, ASS/SSA) into the classic SRT format on-the-fly.
 
 Designed specifically to solve compatibility issues with Samsung TVs running Tizen 9, which strictly require SRT subtitles and fail to load VTT or ASS files.
 
@@ -20,12 +20,15 @@ You can install SubAlchemy directly to your Stremio (PC, Mobile, or Samsung TV) 
 
 ### Configuration
 When you open the installation link, you will see a configuration page. 
-While SubAlchemy works out-of-the-box with default sources, **for the best experience, we recommend configuring it with your own API keys** (just like SubSense). This prevents rate limits and ensures maximum subtitle availability.
+While SubAlchemy works out-of-the-box with default free sources (like AnimeTosho), **for the best experience, we recommend configuring it with your own API keys** (just like SubSense). This prevents rate limits and ensures maximum subtitle availability.
 
-1. **OpenSubtitles**: Get your free API key at [opensubtitles.com](https://www.opensubtitles.com/consumers).
-2. **SubDL**: Get your free API key at [subdl.com](https://subdl.com/panel/api).
-3. Select your preferred languages (Max 3).
-4. Click **Install in Stremio**.
+1. **SubDL**: Get your free API key at [subdl.com](https://subdl.com/panel/api).
+2. **SubSource**: Get your free API key at [subsource.net](https://subsource.net/).
+3. **Wyzie** (Optional): Get your free API key at [github.com/wyzie/Subs](https://github.com/wyzie/Subs).
+4. Select your preferred languages (Max 3).
+5. Click **Install in Stremio**.
+
+*Note: We do not use OpenSubtitles because their API blocks cloud servers like Render. SubAlchemy focuses on sources that work flawlessly in the cloud.*
 
 ## 🤝 Recommended Setup: SubAlchemy + SubSense
 For the best experience across all your devices, use **SubSense** alongside **SubAlchemy**:
@@ -38,7 +41,7 @@ When watching on your TV, simply select the subtitle provided by SubAlchemy, and
 - 🔄 Converts WebVTT (.vtt) to SRT
 - 🔄 Converts Advanced SubStation Alpha (.ass/.ssa) to SRT
 - 🧹 Cleans promotional text/ads from subtitles automatically
-- 🌐 Fetches from multiple sources (OpenSubtitles, SubDL, SubSource, Wyzie, AnimeTosho)
+- 🌐 Fetches from multiple sources (SubDL, SubSource, Wyzie, AnimeTosho)
 - 🌸 **Anime Support**: Integrates with Kitsu API to fetch anime subtitles by title.
 - 🌍 **Multi-Language**: Supports dozens of languages out of the box.
 - 🧹 Deduplicates redundant subtitles
@@ -54,8 +57,8 @@ This project is open-source under the MIT license. You are welcome to clone, mod
 2. Run `npm install`.
 3. Create a `.env` file in the root directory with your keys:
    ```env
-   OPENSUBTITLES_API_KEY=your_opensubtitles_key
    SUBDL_API_KEY=your_subdl_key
+   SUBSOURCE_API_KEY=your_subsource_key
    PORT=7000
    ```
 4. Run `npm start`.
@@ -69,11 +72,12 @@ This addon is optimized for free-tier deployment on Render.com.
 2. Go to [Render.com](https://render.com/) and create a new **Web Service**.
 3. Connect your GitHub repository.
 4. Set the Build Command to `npm install` and Start Command to `npm start`.
-5. Add your Environment Variables (`OPENSUBTITLES_API_KEY`, `SUBDL_API_KEY`, etc.) in the Render dashboard to act as defaults for your instance.
+5. Add your Environment Variables (`SUBDL_API_KEY`, `SUBSOURCE_API_KEY`, etc.) in the Render dashboard to act as defaults for your instance.
 6. Deploy and get your public HTTPS URL!
 
 ## 🛠 Tech Stack
 - Node.js
+- Express
 - Stremio Addon SDK
 - Axios
 - ass-compiler

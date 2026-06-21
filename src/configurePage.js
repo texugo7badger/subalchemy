@@ -166,17 +166,6 @@ function getConfigureHTML(baseUrl) {
         <p class="description">For the best experience across all your devices, we recommend configuring this addon with the same API keys you use in <a href="https://stremio-addons.net/addons/subsense" target="_blank">SubSense</a>.</p>
         
         <div class="form-group">
-            <label>OpenSubtitles API Key 
-                <span class="tooltip">?<span class="tooltiptext">Main subtitle database. Required for best results.</span></span>
-            </label>
-            <div class="input-wrapper">
-                <input type="text" id="osApiKey" placeholder="Enter your API Key">
-                <button class="test-btn" onclick="testAPI('os')">Test</button>
-            </div>
-            <a href="https://www.opensubtitles.com/consumers" target="_blank" class="link">Get OpenSubtitles API Key</a>
-        </div>
-
-        <div class="form-group">
             <label>SubDL API Key 
                 <span class="tooltip">?<span class="tooltiptext">Great alternative source for movies and series.</span></span>
             </label>
@@ -219,8 +208,11 @@ function getConfigureHTML(baseUrl) {
         <button class="install-btn" onclick="installAddon()">Install in Stremio</button>
 
         <div class="sources-section">
-            <h3>Active Free Sources (No Config Required)</h3>
+            <h3>Active Aggregation Sources</h3>
             <div class="sources-logos">
+                <div class="source-badge"><span class="dot"></span>SubDL</div>
+                <div class="source-badge"><span class="dot"></span>SubSource</div>
+                <div class="source-badge"><span class="dot"></span>Wyzie</div>
                 <div class="source-badge"><span class="dot"></span>AnimeTosho</div>
             </div>
         </div>
@@ -296,7 +288,6 @@ function getConfigureHTML(baseUrl) {
                     btn.innerText = 'Valid!'; 
                     btn.className = 'test-btn valid'; 
                 } else { 
-                    // Se tiver erro do servidor, mostra no botão
                     const errText = data.error ? data.error.substring(0, 12) : 'Invalid!';
                     btn.innerText = errText; 
                     btn.title = data.error || 'Invalid API Key';
@@ -306,14 +297,13 @@ function getConfigureHTML(baseUrl) {
         }
 
         function installAddon() {
-            const osKey = document.getElementById('osApiKey').value.trim();
             const subdlKey = document.getElementById('subdlApiKey').value.trim();
             const subsourceKey = document.getElementById('subsourceApiKey').value.trim();
             const wyzieKey = document.getElementById('wyzieApiKey').value.trim();
             const langs = selectedLangs.join(',');
             
-            const manifestUrl = '${baseUrl}/manifest.json?osApiKey=' + encodeURIComponent(osKey) + 
-                                                   '&subdlApiKey=' + encodeURIComponent(subdlKey) + 
+            const manifestUrl = '${baseUrl}/manifest.json?' + 
+                                                   'subdlApiKey=' + encodeURIComponent(subdlKey) + 
                                                    '&subsourceApiKey=' + encodeURIComponent(subsourceKey) + 
                                                    '&wyzieApiKey=' + encodeURIComponent(wyzieKey) + 
                                                    '&languages=' + encodeURIComponent(langs);
