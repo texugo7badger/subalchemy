@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Import modules
-const { vttToSrt, assToSrt } = require('./src/converters');
+const { vttToSrt, assToSrt, removeAds } = require('./src/converters');
 const { getKitsuTitle, searchOpenSubtitles, searchSubDL, searchSubSource, searchWyzie, searchAnimeTosho } = require('./src/sources');
 const { getConfigureHTML } = require('./src/configurePage');
 
@@ -26,7 +26,7 @@ const subtitlesCache = new Map();
 // ==========================================
 const manifest = {
     id: "org.subalchemy.addon",
-    version: "1.0.0",
+    version: "1.0.1",
     name: "SubAlchemy",
     description: "Universal SRT Converter. Fetches from multiple sources, supports Anime (Kitsu), and converts VTT/ASS to SRT.",
     resources: ["subtitles"],
@@ -88,10 +88,21 @@ builder.defineSubtitlesHandler(async ({ id, type, config }) => {
 
     const subtitlesPromises = uniqueSubs.map(async (sub) => {
         try {
+            // Se for SRT direto, baixamos, limpamos os anúncios e servimos pelo nosso cache
             if (sub.fileName.toLowerCase().endsWith('.srt') || sub.url.toLowerCase().includes('.srt')) {
-                return { url: sub.url, lang: sub.lang };
+                const fileRes = await axios.get(sub.url, { responseType: 'text' });
+                let srtContent = fileRes.data;
+                
+                // Aplica a limpeza de anúncios
+                srtContent = removeAds(srtContent);
+                
+                const subId = Buffer.from(sub.url).toString('base64').slice(0, 20);
+                subtitlesCache.set(subId, { content: srtContent, lang: sub.lang, imdbId: imdbId });
+                
+                return { url: `${BASE_URL}/srt/${subId}.srt`, lang: sub.lang };
             }
             
+            // Se for VTT ou ASS, baixa, converte para SRT, limpa anúncios e serve no cache
             if (sub.fileName.toLowerCase().endsWith('.vtt') || sub.fileName.toLowerCase().endsWith('.ass')) {
                 const fileRes = await axios.get(sub.url, { responseType: 'text' });
                 let srtContent = "";
