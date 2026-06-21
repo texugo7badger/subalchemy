@@ -13,8 +13,8 @@ warp-svc &
 sleep 3
 
 echo "Configuring Cloudflare WARP..."
-# CORREÇÃO: Adicionado --accept-tos para aceitar os termos automaticamente
-warp-cli registration new --accept-tos || true
+# CORREÇÃO: A flag --accept-tos deve vir antes do comando 'registration new'
+warp-cli --accept-tos registration new || true
 # Define o modo proxy (SOCKS5 na porta 40000)
 warp-cli mode proxy
 # Conecta ao WARP
