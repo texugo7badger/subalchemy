@@ -26,7 +26,7 @@ const subtitlesCache = new Map();
 // ==========================================
 const manifest = {
     id: "org.subalchemy.addon",
-    version: "1.1.5",
+    version: "1.1.6",
     name: "SubAlchemy",
     logo: `${BASE_URL}/subalchemy-logo.png`,
     description: "Universal SRT Converter. Fetches from cloud-friendly APIs, supports Anime, and converts VTT/ASS/ZIP to SRT.",
@@ -51,6 +51,7 @@ const builder = new addonBuilder(manifest);
 builder.defineSubtitlesHandler(async ({ id, type, config }) => {
     console.log(`\n[SubAlchemy] =========================================`);
     console.log(`[SubAlchemy] Request received for: ${id}`);
+    console.log(`[SubAlchemy] FULL CONFIG RECEIVED:`, JSON.stringify(config)); // Log entire config object
     
     let imdbId = null;
     let searchQuery = null;
@@ -81,12 +82,6 @@ builder.defineSubtitlesHandler(async ({ id, type, config }) => {
         wyzieApiKey: config?.wyzieApiKey || process.env.WYZIE_API_KEY
     };
     
-    // Log to prove if the key is arriving from Stremio
-    console.log(`[SubAlchemy] Config -> SubDL Key exists: ${!!apiKeys.subdlApiKey}`);
-    if (apiKeys.subdlApiKey) {
-        console.log(`[SubAlchemy] Config -> SubDL Key (first 5 chars): ${apiKeys.subdlApiKey.substring(0, 5)}`);
-    }
-
     const languages = config?.languages || 'en,pt-br,es,fr,de,it,ja,zh,ru,ar,hi,ko';
 
     console.log(`[SubAlchemy] Searching multiple sources...`);
