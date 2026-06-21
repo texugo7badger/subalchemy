@@ -22,18 +22,26 @@ class SubDLProvider extends BaseProvider {
       if (!response.data?.subtitles) return { subtitles: [] };
 
       return {
-        subtitles: response.data.subtitles.map(sub => new SubtitleResult({
-          id: `subdl-${sub.subtitleId || sub.url}`,
-          url: sub.url,
-          language: normalizeLang(sub.language),
-          source: 'subdl',
-          fileName: sub.release_name ? sub.release_name + '.srt' : 'unknown.srt',
-          format: 'srt',
-          needsConversion: false
-        }))
+        subtitles: response.data.subtitles.map(sub => {
+          // CORREÇÃO: Garantir que a URL seja absoluta
+          let fullUrl = sub.url;
+          if (fullUrl && !fullUrl.startsWith('http')) {
+            fullUrl = 'https://api.subdl.com' + fullUrl;
+          }
+
+          return new SubtitleResult({
+            id: `subdl-${sub.subtitleId || sub.url}`,
+            url: fullUrl,
+            language: normalizeLang(sub.language),
+            source: 'subdl',
+            fileName: sub.release_name ? sub.release_name + '.srt' : 'unknown.srt',
+            format: 'zip', // SubDL geralmente retorna ZIP
+            needsConversion: true
+          });
+        })
       };
     } catch (err) {
-      log('error', `[SubDLProvider] Failed: ${err.message}`);
+      log('error', `[SubDL] Failed: ${err.message}`);
       return { subtitles: [] };
     }
   }

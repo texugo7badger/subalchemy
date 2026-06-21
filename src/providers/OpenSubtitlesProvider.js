@@ -1,6 +1,6 @@
 const { BaseProvider, SubtitleResult } = require('./BaseProvider');
 const { log } = require('../logger');
-const { OS_BASE, OS_UA, THROTTLE_MS } = require('../constants');
+const { OS_BASE, THROTTLE_MS } = require('../constants');
 const { normalizeLang } = require('../languages');
 const axios = require('axios');
 
@@ -20,19 +20,22 @@ class OpenSubtitlesProvider extends BaseProvider {
       searchPath = `/search/episode-${query.episode}/imdbid-${numericId}/season-${query.season}`;
     }
     
-    // OS legacy API only supports single language filter per request efficiently
     if (query.languages && query.languages.length === 1) {
       searchPath += `/sublanguageid-${normalizeLang(query.languages[0])}`;
     }
 
     const url = `${OS_BASE}${searchPath}`;
-    log('debug', `[OpenSubtitlesProvider] Fetching: ${url}`);
+    log('debug', `[OpenSubtitles] Fetching: ${url}`);
     
     await this._throttle();
     
     try {
       const response = await axios.get(url, {
-        headers: { 'X-User-Agent': OS_UA, 'Accept': 'application/json' },
+        headers: { 
+          'X-User-Agent': 'VLSub 0.10.3', 
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', // Adicionado UA de navegador
+          'Accept': 'application/json' 
+        },
         timeout: 10000
       });
 
@@ -42,13 +45,12 @@ class OpenSubtitlesProvider extends BaseProvider {
       for (const entry of response.data) {
         const langCode = (entry.ISO639 || 'eng').toLowerCase();
         
-        // Client-side filter if multiple languages requested
         if (query.languages && query.languages.length > 1) {
           const matches = query.languages.some(l => normalizeLang(l) === langCode);
           if (!matches) continue;
         }
 
-        const downloadUrl = entry.SubDownloadLink.replace(/\.gz$/, ''); // Strip .gz for direct srt
+        const downloadUrl = entry.SubDownloadLink.replace(/\.gz$/, '');
         results.push(new SubtitleResult({
           id: `os-${entry.IDSubtitleFile}`,
           url: downloadUrl,
@@ -60,10 +62,10 @@ class OpenSubtitlesProvider extends BaseProvider {
           releaseName: entry.MovieReleaseName || ''
         }));
       }
-      log('info', `[OpenSubtitlesProvider] Found ${results.length} subtitles.`);
+      log('info', `[OpenSubtitles] Found ${results.length} subtitles.`);
       return { subtitles: results };
     } catch (err) {
-      log('error', `[OpenSubtitlesProvider] Request failed: ${err.message}`);
+      log('error', `[OpenSubtitles] Request failed: ${err.message}`);
       return { subtitles: [] };
     }
   }
