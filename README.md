@@ -310,10 +310,8 @@ When watching on your TV, simply select the subtitle provided by SubAlchemy, and
 - ✨ **NEW:** AnimeTosho: `&disp=attachments` param (was returning 0 subtitles), precise `a[href*="/subs/file/"]` selector, paginates up to 2 pages.
 - ✨ **NEW:** Per-provider DEBUG logs with elapsed ms and result count.
 - ✨ **NEW:** Orchestrator dedupe by `(source|language|format|releaseName)` instead of URL-only.
-```
 
 ---
-
 
 ## 📜 License
 
