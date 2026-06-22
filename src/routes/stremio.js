@@ -45,7 +45,6 @@ const subtitlesHandler = async (req, res) => {
       extra: req.params.extra || ''
     };
     
-    // CORREÇÃO: Pega a URL base dinamicamente da requisição
     const baseUrl = `${req.protocol}://${req.get('host')}`;
     const result = await handleSubtitlesRequest(args, config, baseUrl);
     res.json(result);

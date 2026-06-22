@@ -4,7 +4,6 @@ const path = require('path');
 const { addonBuilder, getRouter } = require('stremio-addon-sdk');
 const { generateManifest } = require('./manifest');
 const { handleSubtitlesRequest } = require('./src/handlers/subtitles');
-const { handleStreamRequest } = require('./src/handlers/stream');
 const routes = require('./src/routes');
 const { log } = require('./src/logger');
 
@@ -16,10 +15,6 @@ const builder = new addonBuilder(generateManifest({}));
 builder.defineSubtitlesHandler(async ({ id, type, config }) => {
   const baseUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
   return await handleSubtitlesRequest({ id, type }, config, baseUrl);
-});
-
-builder.defineStreamHandler(async ({ id, type }) => {
-  return await handleStreamRequest({ id, type });
 });
 
 const stremioRouter = getRouter(builder.getInterface());

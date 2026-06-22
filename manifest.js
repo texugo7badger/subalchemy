@@ -10,9 +10,9 @@ function generateManifest(config = {}) {
     name: "SubAlchemy",
     logo: "https://raw.githubusercontent.com/texugo7badger/subalchemy/main/subalchemy-logo.png",
     background: "https://images.unsplash.com/photo-1570284613060-766c33850e00?q=80&w=1470&auto=format&fit=crop",
-    description: `Universal SRT Converter for Tizen 9 & Anime${langDisplay}. Fetches subtitles and anime streams (Nyaa/NekoBT).`,
-    resources: ["subtitles", "stream"],
-    types: ["movie", "series", "anime"],
+    description: `Universal SRT Converter for Tizen 9 & Anime${langDisplay}. Fetches subtitles and converts VTT/ASS/ZIP to SRT.`,
+    resources: ["subtitles"],
+    types: ["movie", "series"],
     idPrefixes: ["tt", "kitsu"],
     catalogs: [],
     behaviorHints: {
