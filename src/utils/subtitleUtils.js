@@ -5,44 +5,11 @@ function normalizeLanguage(langCode) {
     // Português (Erai-raws: Brazilian_CR | Ironclad: POR-BR)
     if (normalized.includes('brazilian') || normalized.includes('por-br') || normalized.includes('por_br') || normalized.includes('portuguese') || normalized.startsWith('por') || normalized.startsWith('pt')) return 'por';
     
-    // Inglês (Erai-raws: English_CR | Ironclad: ENG)
+    // Inglês
     if (normalized.includes('english') || normalized.startsWith('eng') || normalized === 'en') return 'eng';
     
-    // Espanhol (Erai-raws: Latin_America_CR, Spanish_CR | Ironclad: SPA-LA, SPA)
+    // Espanhol
     if (normalized.includes('latin_america') || normalized.includes('spa-la') || normalized.includes('spanish') || normalized.startsWith('spa') || normalized.startsWith('esp')) return 'spa';
-    
-    // Árabe (Erai-raws: Arabic_CR | Ironclad: ARA)
-    if (normalized.includes('arabic') || normalized.startsWith('ara')) return 'ara';
-    
-    // Francês (Erai-raws: French_CR | Ironclad: FRE)
-    if (normalized.includes('french') || normalized.startsWith('fre') || normalized.startsWith('fra')) return 'fra';
-    
-    // Alemão (Erai-raws: German_CR | Ironclad: GER)
-    if (normalized.includes('german') || normalized.startsWith('ger') || normalized.startsWith('deu')) return 'deu';
-    
-    // Italiano (Erai-raws: Italian_CR | Ironclad: ITA)
-    if (normalized.includes('italian') || normalized.startsWith('ita')) return 'ita';
-    
-    // Russo (Erai-raws: Russian_CR | Ironclad: RUS)
-    if (normalized.includes('russian') || normalized.startsWith('rus')) return 'rus';
-    
-    // Indonésio (Ironclad: IND)
-    if (normalized.includes('indonesian') || normalized.startsWith('ind')) return 'ind';
-    
-    // Tailandês (Ironclad: THA)
-    if (normalized.includes('thai') || normalized.startsWith('tha')) return 'tha';
-    
-    // Chinês Tradicional (Ironclad: CHI-TR)
-    if (normalized.includes('chi-tr') || normalized.includes('traditional')) return 'zht';
-    
-    // Chinês (Ironclad: CHI)
-    if (normalized.includes('chinese') || normalized.startsWith('chi') || normalized.startsWith('zho')) return 'zho';
-    
-    // Vietnamita (Ironclad: VIE)
-    if (normalized.includes('vietnamese') || normalized.startsWith('vie')) return 'vie';
-    
-    // Malaio (Ironclad: MAY)
-    if (normalized.includes('malay') || normalized.startsWith('may')) return 'may';
     
     return normalized;
 }

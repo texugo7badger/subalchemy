@@ -1,7 +1,7 @@
 {
   "name": "subalchemy",
   "version": "2.0.0",
-  "description": "Universal SRT Converter for Tizen 9 & Anime. Fetches from cloud-friendly APIs and OpenSubtitles keyless.",
+  "description": "Universal SRT Converter for Tizen 9 & Anime.",
   "main": "addon.js",
   "scripts": {
     "start": "node addon.js"
@@ -19,10 +19,8 @@
     "dotenv": "^17.4.2",
     "express": "^4.19.2",
     "iconv-lite": "^0.7.1",
-    "matroska-subtitles": "^3.3.2",
     "socks-proxy-agent": "^8.0.3",
     "stremio-addon-sdk": "^1.6.10",
-    "subsrt-ts": "^2.1.2",
-    "webtorrent": "^2.1.4"
+    "subsrt-ts": "^2.1.2"
   }
 }

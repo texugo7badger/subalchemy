@@ -75,7 +75,6 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   }
 
   // LIMPEZA DA UI: Pega apenas a primeira legenda encontrada do idioma desejado.
-  // Como era um torrent Multi-Subs, a primeira já está perfeitamente sincronizada (Autofit).
   const bestSub = filteredSubs[0];
   const langName = isPortuguese(bestSub.language) ? 'Portuguese' : 'English';
   const subName = `SubAlchemy [${langName}]${isFallback ? ' (Fallback)' : ''}`;
@@ -83,7 +82,6 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   try {
     let finalUrl = bestSub.url;
 
-    // Se for link direto do OpenSubtitles
     if (OS_DIRECT_URL_RE.test(bestSub.url) && isStremioClient(userAgent)) {
       return { 
         subtitles: [{ 
@@ -95,12 +93,6 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
       };
     }
 
-    // Se for link do nosso proxy (já convertido)
-    if (bestSub.url.includes('/srt/')) {
-      return { subtitles: [{ id: bestSub.id, url: bestSub.url, lang: bestSub.language, name: subName }] };
-    }
-
-    // Se precisar converter
     if (bestSub.needsConversion || bestSub.format !== 'srt' || !isStremioClient(userAgent)) {
       const srtContent = await convertToSrt(bestSub);
       if (!srtContent) return { subtitles: [] };

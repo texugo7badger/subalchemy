@@ -1,8 +1,7 @@
 const { log } = require('../logger');
 const InflightCache = require('../cache/InflightCache');
 
-// Aumentado para 45s para permitir a extração via WebTorrent
-const DEFAULT_DEADLINE_MS = parseInt(process.env.PROVIDER_DEADLINE_MS, 10) || 45000;
+const DEFAULT_DEADLINE_MS = parseInt(process.env.PROVIDER_DEADLINE_MS, 10) || 8000;
 
 class ProviderManager {
   constructor() {
