@@ -25,6 +25,7 @@ app.use(express.json());
 app.use(routes.configure);
 app.use(routes.configApi);
 app.use(routes.health);
+app.use(routes.proxy);   // Serves converted SRT files at /srt/:subId.srt — required by Tizen 9
 app.use(stremioRouter);
 
 app.use((req, res) => {

@@ -1,7 +1,7 @@
 {
   "name": "subalchemy",
-  "version": "2.1.1",
-  "description": "Universal SRT Converter for Tizen 9.",
+  "version": "2.3.0",
+  "description": "Universal SRT Converter.",
   "main": "addon.js",
   "scripts": {
     "start": "node addon.js"
