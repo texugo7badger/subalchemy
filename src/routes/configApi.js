@@ -42,17 +42,30 @@ router.get('/api/test-api', async (req, res) => {
       }
     } else if (type === 'wyzie') {
       // Probe the Wyzie API with a known IMDB id (The Matrix, tt0133093).
-      // A valid key returns 200 with an array (possibly empty); an invalid
-      // key returns 401/403 and axios will throw — caught by the catch below.
-      await axios.get('https://sub.wyzie.io/api/v1/subs', {
-        params: { imdb: 'tt0133093' },
+      // Wyzie auths via `?key=` query param (NOT a header — the server
+      // ignores x-api-key and Authorization). 200 with an array = valid key.
+      // 401 = no key seen, 403 = invalid key, 429 = rate limit exceeded.
+      const probe = await axios.get('https://sub.wyzie.io/search', {
+        params: { id: 'tt0133093', key: key.trim() },
         headers: {
-          'x-api-key': key.trim(),
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0',
           'Accept': 'application/json',
         },
         timeout: 8000,
+        validateStatus: status => status < 500,
       });
+      if (probe.status === 401) {
+        return res.json({ valid: false, error: 'Error 401: API key not recognised' });
+      }
+      if (probe.status === 403) {
+        return res.json({ valid: false, error: 'Error 403: Invalid or expired API key' });
+      }
+      if (probe.status === 429) {
+        return res.json({ valid: false, error: 'Error 429: Daily rate limit exceeded (1000 req/day UTC on free tier)' });
+      }
+      if (probe.status !== 200) {
+        return res.json({ valid: false, error: `Error ${probe.status}: ${probe.data?.message || 'Unknown error'}` });
+      }
     }
     res.json({ valid: true });
   } catch (e) {

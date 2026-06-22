@@ -44,10 +44,10 @@ function generateManifest(config = {}) {
       configurationRequired: !hasConfig
     },
     config: [
-      { key: 'subdlApiKey', type: 'string', title: 'SubDL API Key (Optional)', default: process.env.SUBDL_API_KEY || '' },
-      { key: 'subsourceApiKey', type: 'string', title: 'SubSource API Key (Optional)', default: process.env.SUBSOURCE_API_KEY || '' },
-      { key: 'wyzieApiKey', type: 'string', title: 'Wyzie API Key (Optional)', default: process.env.WYZIE_API_KEY || '' },
-      { key: 'languages', type: 'string', title: 'Languages (e.g., en,pt-br,es)', default: 'en,pt-br,es,fr,de,it,ja,zh,ru,ar,hi,ko' }
+      { key: 'subdlApiKey', type: 'password', title: 'SubDL API Key (Optional)', default: process.env.SUBDL_API_KEY || '' },
+      { key: 'subsourceApiKey', type: 'password', title: 'SubSource API Key (Optional)', default: process.env.SUBSOURCE_API_KEY || '' },
+      { key: 'wyzieApiKey', type: 'password', title: 'Wyzie API Key (Optional)', default: process.env.WYZIE_API_KEY || '' },
+      { key: 'languages', type: 'text', title: 'Languages (e.g., en,pt-br,es)', default: 'en,pt-br,es,fr,de,it,ja,zh,ru,ar,hi,ko' }
     ]
   };
 }

@@ -287,7 +287,10 @@ When watching on your TV, simply select the subtitle provided by SubAlchemy, and
 
 ## 📋 Changelog
 
-### v2.3.2 (current)
+### v2.3.3 (current)
+- 🐛 **FIX:** Wyzie provider always returned 401 — the API authenticates via the `?key=` query parameter, NOT via the `x-api-key` header (which the server completely ignores). Switched to `https://sub.wyzie.io/search?id=<imdbId>&key=<apiKey>` with proper query-param auth. Also renamed the `imdb` param to `id` (Wyzie's documented name) and switched from the legacy `/api/v1/subs` path to the canonical `/search` endpoint. Verified live: header auth → 401, query param auth → 403 (server read the key).
+- 🐛 **FIX:** Wyzie "Test" button in `/configure` now uses the same `?key=` query param auth. Returns specific error messages per HTTP status: `401` (key not recognised), `403` (invalid/expired key), `429` (daily rate limit — free tier is 1000 req/day UTC).
+- 🐛 **FIX:** Stremio official addon submission rejected the manifest with `Invalid option: expected one of "text"|"number"|"password"|"checkbox"|"select"`. The `config[]` array was using `type: 'string'` (not in the allowed set). Changed API key fields to `type: 'password'` (masked input) and the `languages` field to `type: 'text'`. Manifest now passes Stremio's validator.
 - 🐛 **FIX:** AnimeTosho `.xz` decompression — the server serves ASS files compressed as `.xz` (magic bytes `fd 37 7a 58`), which the converter didn't know how to handle. Added `lzma-native` dependency and `decompressXz()` to decompress before ASS→SRT conversion. This fixes the "first 5 candidates fail conversion" pattern seen in production logs.
 - 🐛 **FIX:** Magic-byte format detection — URLs from AnimeTosho end in a numeric file ID (no extension), so we can't rely on `.xz`/`.gz`/`.zip` in the URL. Added `detectFormat()` that inspects the first 4 bytes of every download to identify compression and container format. Detection covers: `.xz`, `.gz`, `.zip`, ASS (`[Script Info]`), VTT (`WEBVTT`), SRT (numeric cue index + timestamp line).
 - 🐛 **FIX:** Tizen 9 "Failed to load external subtitle" — the `/srt/:subId.srt` proxy now sends the full CORS header set (`Access-Control-Allow-Origin`, `Access-Control-Allow-Methods`, `Access-Control-Allow-Headers`, `Access-Control-Max-Age`), `Content-Disposition: attachment; filename="<id>.srt"`, and `Cache-Control: public, max-age=31536000, immutable`. Added an `OPTIONS` preflight handler that responds `204 No Content` with the CORS headers for Tizen firmware that sends a preflight request.
@@ -307,8 +310,10 @@ When watching on your TV, simply select the subtitle provided by SubAlchemy, and
 - ✨ **NEW:** AnimeTosho: `&disp=attachments` param (was returning 0 subtitles), precise `a[href*="/subs/file/"]` selector, paginates up to 2 pages.
 - ✨ **NEW:** Per-provider DEBUG logs with elapsed ms and result count.
 - ✨ **NEW:** Orchestrator dedupe by `(source|language|format|releaseName)` instead of URL-only.
+```
 
 ---
+
 
 ## 📜 License
 
