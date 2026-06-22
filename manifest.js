@@ -48,7 +48,14 @@ function generateManifest(config = {}) {
       { key: 'subsourceApiKey', type: 'password', title: 'SubSource API Key (Optional)', default: process.env.SUBSOURCE_API_KEY || '' },
       { key: 'wyzieApiKey', type: 'password', title: 'Wyzie API Key (Optional)', default: process.env.WYZIE_API_KEY || '' },
       { key: 'languages', type: 'text', title: 'Languages (e.g., en,pt-br,es)', default: 'en,pt-br,es,fr,de,it,ja,zh,ru,ar,hi,ko' }
-    ]
+    ],
+    // Claim signature issued by stremio-addons.net — proves developer
+    // ownership of this addon on the official community catalog.
+    // Generated at https://stremio-addons.net when claiming this addon.
+    stremioAddonsConfig: {
+      issuer: "https://stremio-addons.net",
+      signature: "eyJhbGciOiJkaXIiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2In0..ezJe__BEcuVb9Y0aChzNeQ.mxI17tUcdBeB-XITmwMhCHaR0-kH9iPiDJtW6manWIOM-9XAQfBJy9VnwP6fFTmAVVPb9wuRxTj0kbkDgZycGrVGiuzjkB4od71OgTIZloYIgHD7JxdJh2Msx_3trGoz.-MBCmSbXkDq-6X4OL7ThtA"
+    }
   };
 }
 
