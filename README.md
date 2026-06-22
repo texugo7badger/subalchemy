@@ -319,6 +319,3 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 <sub>Made with 🧪 by <a href="https://github.com/texugo7badger">@texugo7badger</a></sub>
 
 </div>
-```
-
----
