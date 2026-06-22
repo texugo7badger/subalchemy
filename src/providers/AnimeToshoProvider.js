@@ -1,6 +1,6 @@
 const { BaseProvider, SubtitleResult } = require('./BaseProvider');
 const { log } = require('../logger');
-const { normalizeLanguage } = require('../languages');
+const { normalizeLanguage } = require('../utils/subtitleUtils');
 const axios = require('axios');
 
 class AnimeToshoProvider extends BaseProvider {
@@ -12,12 +12,12 @@ class AnimeToshoProvider extends BaseProvider {
     if (!query.searchQuery) return { subtitles: [] };
 
     try {
-      // Busca no AnimeTosho focada em animes com Multi-Subs
-      const searchQuery = `${query.searchQuery} Multi-Subs`;
-      const response = await axios.get('https://animetosho.org/search/api', {
+      // Busca no novo domínio animetosho.xyz focando em animes
+      const searchQuery = `${query.searchQuery}`;
+      const response = await axios.get('https://animetosho.xyz/search/api', {
         params: { q: searchQuery },
         headers: { 'User-Agent': 'Mozilla/5.0' },
-        timeout: 8000
+        timeout: 10000
       });
 
       const subs = [];

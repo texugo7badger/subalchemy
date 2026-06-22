@@ -6,7 +6,7 @@ const { getCinemetaTitle } = require('../meta/cinemeta');
 const { getKitsuTitle } = require('../meta/kitsu');
 const { log } = require('../logger');
 const { OS_DIRECT_URL_RE } = require('../constants');
-const { normalizeLanguage, isPortuguese, generatePlaceholder } = require('../utils/subtitleUtils');
+const { normalizeLanguage, isPortuguese } = require('../utils/subtitleUtils');
 const crypto = require('crypto');
 
 async function handleSubtitlesRequest(args, config, baseUrl) {
@@ -59,19 +59,10 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
     isFallback = true;
   }
 
-  // 3. Se não achou nada, Placeholder
+  // 3. Se não achou nada, retorna vazio (sem placeholder)
   if (filteredSubs.length === 0) {
-    log('warn', `[Handler] No subs found. Returning placeholder.`);
-    const subId = crypto.createHash('md5').update('placeholder' + id).digest('hex').slice(0, 20);
-    subtitleStore.set(subId, { content: generatePlaceholder('No subtitles available for this episode'), lang: 'eng' });
-    return { 
-      subtitles: [{ 
-        id: `placeholder-${subId}`, 
-        url: `${baseUrl}/srt/${subId}.srt`, 
-        lang: 'eng', 
-        name: 'SubAlchemy [No Subs Found]' 
-      }] 
-    };
+    log('warn', `[Handler] No subs found. Returning empty.`);
+    return { subtitles: [] };
   }
 
   // LIMPEZA DA UI: Pega apenas a primeira legenda encontrada do idioma desejado.

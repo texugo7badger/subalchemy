@@ -18,14 +18,4 @@ function isPortuguese(langCode) {
     return normalizeLanguage(langCode) === 'por';
 }
 
-function generatePlaceholder(message, duration = 10) {
-    return `1
-00:00:00,000 --> 00:00:${String(duration).padStart(2, '0')},000
- ${message}
-
-2
-00:00:${String(duration).padStart(2, '0')},000 --> 00:00:${String(duration + 5).padStart(2, '0')},000
-Subtitles will be loaded soon...`;
-}
-
-module.exports = { normalizeLanguage, isPortuguese, generatePlaceholder };
+module.exports = { normalizeLanguage, isPortuguese };
