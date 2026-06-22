@@ -66,7 +66,21 @@ const subtitlesHandler = async (req, res) => {
       extra: req.params.extra || ''
     };
 
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    // Compute baseUrl — prefer RENDER_EXTERNAL_URL (always HTTPS on Render)
+    // because req.protocol can be 'http' when behind Render's reverse proxy
+    // even though the public URL is HTTPS. Returning an HTTP URL to Stremio
+    // causes the player (especially Tizen 9) to receive a 301 redirect that
+    // some firmwares silently fail to follow, resulting in the subtitle
+    // never appearing on screen even though it was generated successfully.
+    let baseUrl;
+    if (process.env.RENDER_EXTERNAL_URL) {
+      // RENDER_EXTERNAL_URL is just the host (no protocol) on Render
+      baseUrl = `https://${process.env.RENDER_EXTERNAL_URL}`;
+    } else {
+      baseUrl = `${req.protocol}://${req.get('host')}`;
+    }
+    log('debug', `[StremioRoute] baseUrl for /srt/ URLs: ${baseUrl}`);
+
     const result = await handleSubtitlesRequest(args, config, baseUrl);
     res.json(result);
   } catch (err) {

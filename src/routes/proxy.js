@@ -1,5 +1,6 @@
 const express = require('express');
 const subtitleStore = require('../cache/SubtitleStore');
+const { log } = require('../logger');
 const router = express.Router();
 
 /**
@@ -16,6 +17,8 @@ const router = express.Router();
  *     an md5 hash of the source URL, so the content never changes
  *   - Content-Disposition: attachment; filename="<id>.srt" — some Tizen
  *     builds refuse to load a subtitle without an explicit filename
+ *   - X-Content-Type-Options: nosniff — prevents some smart-TV browsers
+ *     from trying to sniff the content as HTML
  *
  * Without all of these, Tizen 9 shows "Failed to load external subtitle"
  * even when the content is valid SRT.
@@ -23,6 +26,12 @@ const router = express.Router();
 router.get('/srt/:subId', (req, res) => {
   const subId = req.params.subId.replace(/\.srt$/i, '');
   const cachedSub = subtitleStore.get(subId);
+
+  // Log every request — critical for diagnosing whether the player is
+  // actually fetching the subtitle URL we returned to Stremio.
+  const userAgent = (req.headers['user-agent'] || '').substring(0, 80);
+  const range = req.headers['range'] || '';
+  log('info', `[Proxy] GET /srt/${subId}.srt — UA: ${userAgent} — ${cachedSub ? 'HIT (' + cachedSub.content.length + ' chars, lang=' + cachedSub.lang + ')' : 'MISS'}${range ? ' Range: ' + range : ''}`);
 
   if (!cachedSub) {
     res.status(404).json({ error: 'Subtitle not found or expired' });
@@ -37,6 +46,7 @@ router.get('/srt/:subId', (req, res) => {
 
   // Content-Type — both common SRT mime types accepted by Stremio
   res.setHeader('Content-Type', 'application/x-subrip; charset=utf-8');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
 
   // Filename hint for Tizen player
   res.setHeader('Content-Disposition', `attachment; filename="${subId}.srt"`);
@@ -51,6 +61,7 @@ router.get('/srt/:subId', (req, res) => {
 
 // Handle CORS preflight for /srt/ (some Tizen firmware sends OPTIONS first)
 router.options('/srt/:subId', (req, res) => {
+  log('info', `[Proxy] OPTIONS /srt/${req.params.subId} (CORS preflight)`);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range');
