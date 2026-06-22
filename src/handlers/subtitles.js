@@ -271,7 +271,16 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
       const subId = crypto.createHash('md5').update(sub.url).digest('hex').slice(0, 20);
       subtitleStore.set(subId, { content: srtContent, lang: sub.language });
       finalUrl = `${baseUrl}/srt/${subId}.srt`;
-      log('info', `[Handler] ✅ Returning converted SRT to Stremio (candidate ${i + 1}/${ranked.length}, ${sub.source}, ${langName}, ${validation.cuesCount} cues, ${Math.round(validation.durationMs / 1000)}s duration)`);
+
+      // Log sync-relevant info: first cue offset, last cue end. If the first
+      // cue starts > 30s into the video, the subtitle is likely for a
+      // release that includes an opening the user's stream doesn't have
+      // (or vice versa). We still serve it but log a WARN so we can diagnose
+      // "subtitle doesn't appear" reports.
+      const firstOffsetSec = Math.round(validation.firstTimestampMs / 1000);
+      const totalDurationSec = Math.round(validation.durationMs / 1000);
+      const syncWarning = firstOffsetSec > 30 ? ' ⚠️ first cue starts at ' + firstOffsetSec + 's — may be desynced if stream cuts opening' : '';
+      log('info', `[Handler] ✅ Returning converted SRT to Stremio (candidate ${i + 1}/${ranked.length}, ${sub.source}, ${langName}, ${validation.cuesCount} cues, ${totalDurationSec}s duration, first cue @ ${firstOffsetSec}s${syncWarning})`);
       log('info', `[Handler]    release="${(sub.releaseName || '').substring(0, 80)}" file="${(sub.fileName || '').substring(0, 80)}"`);
       log('info', `[Handler]    served at ${finalUrl}`);
       return {
