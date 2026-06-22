@@ -1,7 +1,7 @@
 const { log } = require('../logger');
 const InflightCache = require('../cache/InflightCache');
 
-const DEFAULT_DEADLINE_MS = parseInt(process.env.PROVIDER_DEADLINE_MS, 10) || 8000;
+const DEFAULT_DEADLINE_MS = parseInt(process.env.PROVIDER_DEADLINE_MS, 10) || 10000;
 
 class ProviderManager {
   constructor() {

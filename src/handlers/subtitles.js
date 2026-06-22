@@ -17,8 +17,10 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   let searchQuery = null;
   if (parsed.kitsuId) {
     searchQuery = await getKitsuTitle(parsed.kitsuId);
+    log('info', `[Handler] Kitsu Anime detected. Title: ${searchQuery}`);
   } else if (parsed.imdbId) {
     searchQuery = await getCinemetaTitle(parsed.imdbId, type);
+    log('info', `[Handler] IMDB ID: ${parsed.imdbId}. Cinemeta Title: ${searchQuery}`);
   }
 
   let requestedLangs = ['eng'];
@@ -28,6 +30,7 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
     else if (typeof config.languages === 'string') langArray = config.languages.split(',');
     requestedLangs = langArray.map(normalizeLanguage).filter(Boolean);
   }
+  log('info', `[Handler] Requested Languages: ${requestedLangs.join(', ')}`);
 
   const query = {
     ...parsed,
@@ -50,12 +53,14 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   let filteredSubs = [];
   if (userWantsPt) {
     filteredSubs = subtitles.filter(sub => isPortuguese(sub.language));
+    log('info', `[Handler] Found ${filteredSubs.length} PT subtitles.`);
   }
 
   // 2. Se não achou PT, tenta EN
   let isFallback = false;
   if (filteredSubs.length === 0 && userWantsEn) {
     filteredSubs = subtitles.filter(sub => normalizeLanguage(sub.language) === 'eng');
+    log('info', `[Handler] Found ${filteredSubs.length} EN subtitles (fallback).`);
     isFallback = true;
   }
 

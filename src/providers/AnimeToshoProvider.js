@@ -13,9 +13,9 @@ class AnimeToshoProvider extends BaseProvider {
     if (!query.searchQuery) return { subtitles: [] };
 
     try {
-      // Usa o novo domínio .xyz com o parâmetro disp=attachments para listar apenas legendas
       const searchQuery = `${query.searchQuery}`;
-      const url = `https://animetosho.xyz/search?q=${encodeURIComponent(searchQuery)}&disp=attachments`;
+      const url = `https://animetosho.xyz/search?q=${encodeURIComponent(searchQuery)}`;
+      log('debug', `[AnimeTosho] Fetching: ${url}`);
       
       const response = await axios.get(url, {
         headers: { 'User-Agent': 'Mozilla/5.0' },
@@ -25,40 +25,48 @@ class AnimeToshoProvider extends BaseProvider {
       const $ = cheerio.load(response.data);
       const subs = [];
 
-      // Procura por todos os links <a> na página
+      // Procura por links de anexos de legenda
       $('a').each((i, el) => {
         const href = $(el).attr('href');
         const text = $(el).text().trim();
 
-        // Filtra apenas os links que terminam com extensões de legenda
-        if (href && (href.endsWith('.ass') || href.endsWith('.srt') || href.endsWith('.zip'))) {
+        if (href && (href.includes('/subs/file/') || href.endsWith('.ass') || href.endsWith('.srt') || href.endsWith('.zip'))) {
           
-          // Garante que a URL seja absoluta
           let fullUrl = href;
           if (href.startsWith('/')) {
             fullUrl = `https://animetosho.xyz${href}`;
           }
 
-          const fileName = text || fullUrl.split('/').pop();
-          const ext = fileName.split('.').pop().toLowerCase();
+          // Tenta pegar o nome do release no elemento pai
+          const releaseName = $(el).closest('.home_list_entry, .search_result, div').find('.link, .title').first().text().trim() || text;
           
-          // Usa o nome do arquivo para detectar o idioma
-          const lang = normalizeLanguage(fileName) || 'eng';
+          let ext = 'ass';
+          if (fullUrl.endsWith('.srt')) ext = 'srt';
+          else if (fullUrl.endsWith('.zip')) ext = 'zip';
+
+          const langSource = releaseName || text;
+          let lang = normalizeLanguage(langSource) || 'eng';
+          
+          // Prioriza Erai, Ironclad, Toonshub
+          if (releaseName.toLowerCase().match(/erai|ironclad|toonshub/)) {
+            if (langSource.toLowerCase().match(/por|pt-br|brazilian/)) lang = 'por';
+            else if (langSource.toLowerCase().match(/eng|english/)) lang = 'eng';
+          }
 
           subs.push(new SubtitleResult({
             id: `atosho-${fullUrl}`,
             url: fullUrl,
             language: lang,
             source: 'animetosho',
-            fileName: fileName,
-            releaseName: 'AnimeTosho', // Nome genérico para a UI
+            fileName: text || releaseName,
+            releaseName: releaseName,
             format: ext,
             needsConversion: ext !== 'srt'
           }));
         }
       });
 
-      // Remove duplicatas baseadas na URL
+      // Dedupe
       const uniqueSubs = [];
       const seenUrls = new Set();
       for (const sub of subs) {

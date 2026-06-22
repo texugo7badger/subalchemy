@@ -1,26 +1,37 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
-const { log } = require('./src/logger');
+const { addonBuilder, getRouter } = require('stremio-addon-sdk');
+const { generateManifest } = require('./manifest');
+const { handleSubtitlesRequest } = require('./src/handlers/subtitles');
+const { handleStreamRequest } = require('./src/handlers/stream');
 const routes = require('./src/routes');
+const { log } = require('./src/logger');
 
 const PORT = process.env.PORT || 7000;
 const app = express();
 
-app.disable('x-powered-by');
-app.use(express.json({ limit: '64kb' }));
+const builder = new addonBuilder(generateManifest({}));
 
-// Serve static UI assets
+builder.defineSubtitlesHandler(async ({ id, type, config }) => {
+  const baseUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+  return await handleSubtitlesRequest({ id, type }, config, baseUrl);
+});
+
+builder.defineStreamHandler(async ({ id, type }) => {
+  return await handleStreamRequest({ id, type });
+});
+
+const stremioRouter = getRouter(builder.getInterface());
+
 app.use('/assets', express.static(path.join(__dirname, 'src', 'ui', 'assets')));
+app.use(express.json());
 
-// Register Routes
-app.use(routes.stremio);
-app.use(routes.proxy);
 app.use(routes.configure);
 app.use(routes.configApi);
 app.use(routes.health);
+app.use(stremioRouter);
 
-// Fallback 404
 app.use((req, res) => {
   res.status(404).json({ error: 'Not found', path: req.path });
 });

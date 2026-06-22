@@ -1,7 +1,7 @@
 {
   "name": "subalchemy",
   "version": "2.0.0",
-  "description": "Universal SRT Converter for Tizen 9 & Anime.",
+  "description": "Universal SRT Converter & Anime Streamer for Tizen 9.",
   "main": "addon.js",
   "scripts": {
     "start": "node addon.js"
