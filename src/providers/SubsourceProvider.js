@@ -20,7 +20,9 @@ const THROTTLE_MS = 1100;
  * Flow:
  *   1. Resolve movieId via /movies/search (by imdbId or text)
  *   2. List subtitles via /subtitles?movieId=...
- *   3. Each SubtitleResult.url points to /subtitles/{id}/download?api_key=...
+ *   3. If the user requested a specific episode, filter client-side by
+ *      season+episode marker (SubSource returns ALL episodes of a series)
+ *   4. Each SubtitleResult.url points to /subtitles/{id}/download?api_key=...
  *      (returns a ZIP stream; the existing zipExtract converter handles it)
  */
 class SubsourceProvider extends BaseProvider {
@@ -163,8 +165,49 @@ class SubsourceProvider extends BaseProvider {
         });
       });
 
-      log('info', `[SubSource] Found ${subs.length} subtitles.`);
-      return { subtitles: subs };
+      // If the user requested a specific episode, filter client-side to
+      // subs whose releaseName contains an episode marker matching the
+      // requested episode. SubSource's /movies/search returns the series
+      // (not the specific episode) so the subtitle list contains ALL
+      // episodes — we must filter here.
+      let filtered = subs;
+      if (query.season != null && query.episode != null) {
+        const eStr = String(query.episode);
+        const eStrPadded = String(query.episode).padStart(2, '0');
+        const exactPatterns = [
+          new RegExp(`s0?${query.season}\\s*e0?${query.episode}\\b`, 'i'),
+          new RegExp(`\\b${query.season}x0?${query.episode}\\b`, 'i'),
+          new RegExp(`\\bep\\.?\\s*0?${query.episode}\\b`, 'i'),
+          new RegExp(`\\bepisode\\s*0?${query.episode}\\b`, 'i'),
+          new RegExp(`\\s-\\s${eStr}\\b`, 'i'),
+          new RegExp(`\\s-\\s${eStrPadded}\\b`, 'i'),
+        ];
+        const hasAnyMarker = /\bs\d{1,2}\s*e\d{1,3}\b|\b\d+x\d{1,3}\b|\bep\.?\s*\d{1,3}\b|\s-\s\d{1,3}\b/i;
+
+        // Prefer subs that explicitly match the episode, then subs with no
+        // episode marker (might be season-batch or movie), then subs with
+        // a different episode marker (last resort — usually wrong).
+        const exactMatch = subs.filter(s => exactPatterns.some(re => re.test(s.releaseName)));
+        const noMarker = subs.filter(s => !hasAnyMarker.test(s.releaseName));
+        const wrongEpisode = subs.filter(s =>
+          hasAnyMarker.test(s.releaseName) &&
+          !exactPatterns.some(re => re.test(s.releaseName))
+        );
+
+        if (exactMatch.length > 0) {
+          filtered = exactMatch;
+          log('debug', `[SubSource] Episode S${query.season}E${query.episode}: ${exactMatch.length} exact match(es), ${noMarker.length} no-marker, ${wrongEpisode.length} wrong-episode.`);
+        } else if (noMarker.length > 0) {
+          filtered = noMarker;
+          log('debug', `[SubSource] No exact episode match — using ${noMarker.length} no-marker candidate(s).`);
+        } else {
+          filtered = wrongEpisode;
+          log('warn', `[SubSource] Only wrong-episode subs available (${wrongEpisode.length}). Returning them as last resort.`);
+        }
+      }
+
+      log('info', `[SubSource] Found ${filtered.length} subtitles (after episode filter).`);
+      return { subtitles: filtered };
     } catch (err) {
       log('warn', `[SubSource] Error: ${err.message}`);
       return { subtitles: [] };

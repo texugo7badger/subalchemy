@@ -285,34 +285,6 @@ When watching on your TV, simply select the subtitle provided by SubAlchemy, and
 
 ---
 
-## 📋 Changelog
-
-### v2.3.3 (current)
-- 🐛 **FIX:** Wyzie provider always returned 401 — the API authenticates via the `?key=` query parameter, NOT via the `x-api-key` header (which the server completely ignores). Switched to `https://sub.wyzie.io/search?id=<imdbId>&key=<apiKey>` with proper query-param auth. Also renamed the `imdb` param to `id` (Wyzie's documented name) and switched from the legacy `/api/v1/subs` path to the canonical `/search` endpoint. Verified live: header auth → 401, query param auth → 403 (server read the key).
-- 🐛 **FIX:** Wyzie "Test" button in `/configure` now uses the same `?key=` query param auth. Returns specific error messages per HTTP status: `401` (key not recognised), `403` (invalid/expired key), `429` (daily rate limit — free tier is 1000 req/day UTC).
-- 🐛 **FIX:** Stremio official addon submission rejected the manifest with `Invalid option: expected one of "text"|"number"|"password"|"checkbox"|"select"`. The `config[]` array was using `type: 'string'` (not in the allowed set). Changed API key fields to `type: 'password'` (masked input) and the `languages` field to `type: 'text'`. Manifest now passes Stremio's validator.
-- 🐛 **FIX:** AnimeTosho `.xz` decompression — the server serves ASS files compressed as `.xz` (magic bytes `fd 37 7a 58`), which the converter didn't know how to handle. Added `lzma-native` dependency and `decompressXz()` to decompress before ASS→SRT conversion. This fixes the "first 5 candidates fail conversion" pattern seen in production logs.
-- 🐛 **FIX:** Magic-byte format detection — URLs from AnimeTosho end in a numeric file ID (no extension), so we can't rely on `.xz`/`.gz`/`.zip` in the URL. Added `detectFormat()` that inspects the first 4 bytes of every download to identify compression and container format. Detection covers: `.xz`, `.gz`, `.zip`, ASS (`[Script Info]`), VTT (`WEBVTT`), SRT (numeric cue index + timestamp line).
-- 🐛 **FIX:** Tizen 9 "Failed to load external subtitle" — the `/srt/:subId.srt` proxy now sends the full CORS header set (`Access-Control-Allow-Origin`, `Access-Control-Allow-Methods`, `Access-Control-Allow-Headers`, `Access-Control-Max-Age`), `Content-Disposition: attachment; filename="<id>.srt"`, and `Cache-Control: public, max-age=31536000, immutable`. Added an `OPTIONS` preflight handler that responds `204 No Content` with the CORS headers for Tizen firmware that sends a preflight request.
-- 🐛 **FIX:** Handler now iterates subtitle candidates (up to 30 per language) when conversion fails. Previously, if the first candidate (often OpenSubtitles) failed at download time with HTTP 401, the handler returned empty — ignoring 100+ alternatives from AnimeTosho/SubSource. Now it logs `Candidate N failed conversion — trying next` and continues until one converts successfully.
-- 🐛 **FIX:** OpenSubtitles 401 on download — the converter now sends the `X-User-Agent: VLSub 0.10.3` header on download requests (not just search). Without this header the `.gz` download endpoint returns 401 even through WARP. Also added `.gz` decompression via `zlib.gunzipSync`.
-- 🐛 **FIX:** User API keys (SubDL, SubSource, Wyzie) were being silently dropped — the `stremio-addon-sdk` `getRouter()` was shadowing our custom Express route and passing `config: false` to the handler. Removed the SDK router entirely; the HTTP layer is now 100% our own Express app, which calls `parseConfigParam()` to decode the base64-JSON config correctly.
-- 🐛 **FIX:** Manifest logo was pointing to a non-existent GitHub raw path (`subalchemy-logo.png` at repo root, but the file lives in `src/ui/assets/`). Now served from our own Express static route at `/assets/subalchemy-logo.png` using `RENDER_EXTERNAL_URL` for the absolute URL.
-- 🐛 **FIX:** "Configure" button missing in Stremio desktop — `behaviorHints.configurable` is now always `true` (only `configurationRequired` toggles off once configured). Manifest cache reduced from `max-age=86400` (24h) to `max-age=60, must-revalidate` so config changes propagate fast.
-- 🐛 **FIX:** `extractSrtFromZip` now extracts `.ass`/`.ssa`/`.vtt` from inside ZIPs (previously only `.srt`), with on-the-fly ASS→SRT conversion. SubSource and SubDL ZIPs with ASS tracks now play correctly.
-- ✨ **NEW:** Ko-fi floating overlay widget on `/configure` (purple "Support me" button) + traditional Ko-fi banner in the footer.
-- ✨ **NEW:** Debug log line `[Handler] API keys: {subdlApiKey: "(set, N chars)", ...}` so production logs show whether API keys actually arrived at the handler (masked — only length, not the key itself).
-- ✨ **NEW:** SubSource provider (`api.subsource.net/api/v1`) with user-supplied `X-API-Key`. Two-step flow: resolve `movieId` via `/movies/search`, then list subs via `/subtitles?movieId=...`. Download URL is self-contained with `api_key` query param so `convertToSrt` can fetch the ZIP transparently.
-- ✨ **NEW:** `/api/test-api` now validates SubSource and Wyzie keys against the live API (SubDL was already supported).
-- ✨ **NEW:** Wyzie "Get API Key" link updated to [store.wyzie.io/redeem](https://store.wyzie.io/redeem).
-- ✨ **NEW:** Universal language priority fallback — user picks up to 3 languages in priority order; falls back to English if none match. `subtitleUtils.js` now supports all 12 selector languages + fan-sub variants (`Brazilian_CR`, `POR-BR`, etc.).
-- ✨ **NEW:** `languages.js` is now a thin re-export of `utils/subtitleUtils.js` (single source of truth). Fixed `generatePlaceholder` which was imported but didn't exist.
-- ✨ **NEW:** AnimeTosho: `&disp=attachments` param (was returning 0 subtitles), precise `a[href*="/subs/file/"]` selector, paginates up to 2 pages.
-- ✨ **NEW:** Per-provider DEBUG logs with elapsed ms and result count.
-- ✨ **NEW:** Orchestrator dedupe by `(source|language|format|releaseName)` instead of URL-only.
-
----
-
 ## 📜 License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details. Feel free to contribute, open issues, or submit pull requests!

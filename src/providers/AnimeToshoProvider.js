@@ -160,10 +160,22 @@ class AnimeToshoProvider extends BaseProvider {
     const group = query.group || null;
     const allSubs = [];
 
+    // If the user requested a specific episode, narrow the search by
+    // appending the episode number to the query. This drastically reduces
+    // cross-episode mismatches: searching for "Wistoria" returns subs for
+    // every episode, but "Wistoria 11" returns only episode 11 subs.
+    // We don't include the season because AnimeTosho search uses the
+    // fansub group naming convention (e.g. "[Erai-raws] Title - 11").
+    let searchQuery = query.searchQuery;
+    if (query.episode != null) {
+      searchQuery = `${query.searchQuery} ${query.episode}`;
+      log('debug', `[AnimeTosho] Episode ${query.episode} requested — narrowed search query to "${searchQuery}"`);
+    }
+
     try {
       // Scrape up to 2 pages
       for (let page = 1; page <= 2; page++) {
-        const url = this._buildSearchUrl(query.searchQuery, group, page);
+        const url = this._buildSearchUrl(searchQuery, group, page);
         const pageSubs = await this._scrapePage(url);
         allSubs.push(...pageSubs);
 

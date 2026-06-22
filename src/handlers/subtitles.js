@@ -1,6 +1,7 @@
 const { parseStremioId, isStremioClient } = require('../utils');
 const { providerManager } = require('../providers');
 const { convertToSrt } = require('../converters');
+const { validateSrt } = require('../converters/validateSrt');
 const subtitleStore = require('../cache/SubtitleStore');
 const { getCinemetaTitle } = require('../meta/cinemeta');
 const { getKitsuTitle } = require('../meta/kitsu');
@@ -8,6 +9,97 @@ const { log } = require('../logger');
 const { OS_DIRECT_URL_RE } = require('../constants');
 const { normalizeLanguage, getLanguageName } = require('../utils/subtitleUtils');
 const crypto = require('crypto');
+
+const MAX_PER_LANG = 30;
+
+/**
+ * Detect whether a subtitle's release name / file name matches the
+ * requested season+episode. Returns:
+ *   - 2  = exact match (e.g. "S01E11" or "1x11")
+ *   - 1  = partial / no marker (might be a batch or movie)
+ *   - 0  = different episode marker (definitely wrong episode)
+ *
+ * @param {string} releaseName
+ * @param {string} fileName
+ * @param {number|null} season
+ * @param {number|null} episode
+ * @returns {number}
+ */
+function episodeMatchScore(releaseName, fileName, season, episode) {
+  if (season == null || episode == null) return 1; // no episode requested — neutral
+  const hay = `${releaseName || ''} ${fileName || ''}`.toLowerCase();
+
+  // Common episode markers (case-insensitive):
+  //   S01E11, s1e11, 1x11         — standard TV naming
+  //   EP11, ep.11, episode 11     — explicit episode label
+  //   " - 11 " or " - 11["        — fansub naming (e.g. "[Erai-raws] Title - 11 [1080p]")
+  const eStr = String(episode);
+  const eStrPadded = String(episode).padStart(2, '0');
+
+  const exactPatterns = [
+    // Standard TV patterns
+    new RegExp(`s0?${season}\\s*e0?${episode}\\b`, 'i'),
+    new RegExp(`\\b${season}x0?${episode}\\b`, 'i'),
+    // Explicit episode label
+    new RegExp(`\\bep\\.?\\s*0?${episode}\\b`, 'i'),
+    new RegExp(`\\bepisode\\s*0?${episode}\\b`, 'i'),
+    // Fansub pattern: " - 11 " or " - 11[" or " - 11." at end of name segment
+    new RegExp(`\\s-\\s${eStr}\\b`, 'i'),
+    new RegExp(`\\s-\\s${eStrPadded}\\b`, 'i'),
+  ];
+  for (const re of exactPatterns) {
+    if (re.test(hay)) return 2;
+  }
+
+  // Try to detect any episode marker that DOESN'T match — that's a miss.
+  // We use the standard TV pattern + fansub dash pattern for detection.
+  const anyEpisodeMarker = /\bs\d{1,2}\s*e\d{1,3}\b|\b\d+x\d{1,3}\b|\bep\.?\s*\d{1,3}\b|\s-\s\d{1,3}\b/i;
+  const m = hay.match(anyEpisodeMarker);
+  if (m) {
+    // Found a marker — does it match our target episode?
+    const marker = m[0];
+    if (!exactPatterns.some(re => re.test(marker))) {
+      return 0; // different episode
+    }
+  }
+
+  // No marker at all — might be a batch, movie, or episode-less sub. Neutral.
+  return 1;
+}
+
+/**
+ * Sort candidates by episode match score (best first), preserving
+ * language-priority order. Within the same language, candidates with
+ * score 2 (exact match) come first, then score 1 (neutral), then 0 (miss).
+ *
+ * @param {Array} candidates - Already built in language-priority order
+ * @param {number|null} season
+ * @param {number|null} episode
+ * @returns {Array} Sorted copy
+ */
+function rankByEpisode(candidates, season, episode) {
+  if (season == null || episode == null) return candidates;
+
+  // Group by language, sort within each group, then flatten back.
+  // We need to preserve the language-priority order from `candidates`.
+  const langGroups = new Map();
+  for (const sub of candidates) {
+    const lang = normalizeLanguage(sub.language) || 'eng';
+    if (!langGroups.has(lang)) langGroups.set(lang, []);
+    langGroups.get(lang).push(sub);
+  }
+
+  const out = [];
+  for (const group of langGroups.values()) {
+    group.sort((a, b) => {
+      const sa = episodeMatchScore(a.releaseName, a.fileName, season, episode);
+      const sb = episodeMatchScore(b.releaseName, b.fileName, season, episode);
+      return sb - sa; // higher score first
+    });
+    out.push(...group);
+  }
+  return out;
+}
 
 /**
  * Handle a Stremio /subtitles request.
@@ -21,25 +113,21 @@ const crypto = require('crypto');
  *      English (marked as "Fallback" in the UI label).
  *   3. If English is also missing, return an empty array (no placeholder).
  *
- * For the chosen language, iterate through all candidates in order until
- * one of them converts to SRT successfully. This is critical because the
- * first candidate (often OpenSubtitles) can fail at download time with
- * HTTP 401 — without iteration the user would get no subtitle at all
- * despite 100+ alternatives being available from AnimeTosho/SubSource/etc.
- *
- * The chosen subtitle is converted to SRT on the fly (ASS/VTT/ZIP/gz → SRT)
- * and served from our own /srt/<id>.srt endpoint so that Tizen 9 and any
- * other client without ASS/VTT support can display it with perfect timing.
- *
- * @param {object} args    - { id, type, extra }
- * @param {object} config  - Decoded user config (apiKeys, languages, _userAgent)
- * @param {string} baseUrl - Absolute base URL of this addon instance
- * @returns {Promise<{subtitles: Array}>}
+ * For the chosen language, candidates are ranked by episode-match score
+ * (so S01E11 subs come before batch/wrong-episode subs), and iterated
+ * until one converts to a valid SRT (passes `validateSrt()`).
  */
 async function handleSubtitlesRequest(args, config, baseUrl) {
   const { id, type } = args;
   const parsed = parseStremioId(id);
   const userAgent = config._userAgent || '';
+
+  // --- Log the full request context (calibration aid) --------------------
+  log('info', `[Handler] === Request start ===`);
+  log('info', `[Handler] Stremio id: ${id}`);
+  log('info', `[Handler] Parsed: imdbId=${parsed.imdbId || '-'}, kitsuId=${parsed.kitsuId || '-'}, season=${parsed.season ?? '-'}, episode=${parsed.episode ?? '-'}`);
+  log('info', `[Handler] User-Agent: ${userAgent.substring(0, 80)}${userAgent.length > 80 ? '...' : ''}`);
+  log('info', `[Handler] isStremioClient: ${isStremioClient(userAgent)}`);
 
   // --- Resolve the search query (anime title, movie/series title) ---------
   let searchQuery = null;
@@ -63,9 +151,7 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   if (requestedLangs.length > 3) requestedLangs = requestedLangs.slice(0, 3);
   log('info', `[Handler] Requested Languages (priority order): ${requestedLangs.join(' > ')}`);
 
-  // --- Debug: log what API keys actually arrived (masked) -----------------
-  // This is critical for diagnosing "No API key configured" warnings that
-  // happen despite the user having typed a key in /configure.
+  // --- Log API keys (masked) ---------------------------------------------
   const apiKeys = {
     subdlApiKey: config.subdlApiKey ? `(set, ${config.subdlApiKey.length} chars)` : '(missing)',
     subsourceApiKey: config.subsourceApiKey ? `(set, ${config.subsourceApiKey.length} chars)` : '(missing)',
@@ -94,11 +180,6 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   }
 
   // --- Build the ordered candidate list, respecting user priority ---------
-  // We collect ALL matching subs across all user-requested languages (in
-  // priority order) so that if the first candidate fails to convert, we
-  // can fall through to the next one. We cap at 30 candidates per language
-  // to bound the worst-case conversion time.
-  const MAX_PER_LANG = 30;
   const candidates = [];
   let chosenLang = null;
   let isFallback = false;
@@ -134,13 +215,23 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
     return { subtitles: [] };
   }
 
-  // --- Iterate candidates: convert each to SRT until one works ------------
-  // OpenSubtitles .gz URLs frequently 401 at download time (the search API
-  // returns a SubDownloadLink that is short-lived). AnimeTosho ASS files
-  // always work. By iterating we surface the AnimeTosho fallback instead
-  // of failing silently.
-  for (let i = 0; i < candidates.length; i++) {
-    const sub = candidates[i];
+  // --- Rank candidates by episode-match score -----------------------------
+  // When the user requested a specific episode, sort so that exact-episode
+  // matches come first, then neutral (no marker), then wrong-episode.
+  const ranked = rankByEpisode(candidates, parsed.season, parsed.episode);
+  if (parsed.season != null && parsed.episode != null) {
+    log('info', `[Handler] Episode context: S${parsed.season}E${parsed.episode}. Ranking ${ranked.length} candidate(s) by episode-match score.`);
+    // Log top 5 candidates with their score for calibration
+    ranked.slice(0, 5).forEach((c, i) => {
+      const score = episodeMatchScore(c.releaseName, c.fileName, parsed.season, parsed.episode);
+      const scoreLabel = score === 2 ? 'EXACT' : score === 1 ? 'neutral' : 'WRONG-EP';
+      log('info', `[Handler]   #${i + 1} [${scoreLabel}] ${c.source} | ${c.language} | "${(c.releaseName || c.fileName || '').substring(0, 80)}"`);
+    });
+  }
+
+  // --- Iterate candidates: convert + validate each until one works --------
+  for (let i = 0; i < ranked.length; i++) {
+    const sub = ranked[i];
     const langName = getLanguageName(normalizeLanguage(sub.language));
     const subName = `SubAlchemy [${langName}]${isFallback ? ' (Fallback)' : ''}`;
 
@@ -149,10 +240,9 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
 
       // OpenSubtitles direct URL + official Stremio desktop client:
       // bypass conversion, let Stremio fetch the .gz/.srt directly via the
-      // local 127.0.0.1:11470 bridge. (Tizen 9 doesn't get this path because
-      // its User-Agent isn't matched by STREMIO_UA_RE.)
+      // local 127.0.0.1:11470 bridge.
       if (OS_DIRECT_URL_RE.test(sub.url) && isStremioClient(userAgent)) {
-        log('info', `[Handler] Returning OS direct URL to Stremio desktop client (candidate ${i + 1}/${candidates.length}, ${langName}).`);
+        log('info', `[Handler] Returning OS direct URL to Stremio desktop (candidate ${i + 1}/${ranked.length}, ${sub.source}, ${langName}). URL: ${sub.url.substring(0, 100)}`);
         return {
           subtitles: [{
             id: sub.id,
@@ -163,32 +253,27 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
         };
       }
 
-      // Any non-SRT subtitle (ASS/VTT/ZIP/gz) or any non-Stremio client
-      // (Tizen 9, browser, etc.) needs server-side conversion to plain SRT.
-      if (sub.needsConversion || sub.format !== 'srt' || !isStremioClient(userAgent)) {
-        log('debug', `[Handler] Trying candidate ${i + 1}/${candidates.length}: ${sub.source} ${sub.format} (${langName})`);
-        const srtContent = await convertToSrt(sub);
-        if (!srtContent) {
-          log('warn', `[Handler] Candidate ${i + 1} (${sub.source}) failed conversion — trying next.`);
-          continue;
-        }
-
-        const subId = crypto.createHash('md5').update(sub.url).digest('hex').slice(0, 20);
-        subtitleStore.set(subId, { content: srtContent, lang: sub.language });
-        finalUrl = `${baseUrl}/srt/${subId}.srt`;
-        log('info', `[Handler] Returning converted SRT to Stremio (candidate ${i + 1}/${candidates.length}, ${sub.source}, ${langName}).`);
-        return {
-          subtitles: [{
-            id: sub.id,
-            url: finalUrl,
-            lang: sub.language,
-            name: subName
-          }]
-        };
+      // Convert to SRT (handles ASS/VTT/ZIP/XZ/GZ)
+      log('debug', `[Handler] Trying candidate ${i + 1}/${ranked.length}: ${sub.source} ${sub.format} (${langName}) | release="${(sub.releaseName || '').substring(0, 60)}" | file="${(sub.fileName || '').substring(0, 60)}" | url=${sub.url.substring(0, 80)}`);
+      const srtContent = await convertToSrt(sub);
+      if (!srtContent) {
+        log('warn', `[Handler] Candidate ${i + 1} (${sub.source}) failed conversion — trying next.`);
+        continue;
       }
 
-      // Pure SRT, no conversion needed (rare for non-Stremio clients)
-      log('info', `[Handler] Returning direct SRT URL (candidate ${i + 1}, ${langName}).`);
+      // Validate the SRT — reject placeholder/empty/broken subs
+      const validation = validateSrt(srtContent);
+      if (!validation.valid) {
+        log('warn', `[Handler] Candidate ${i + 1} (${sub.source}) produced invalid SRT (${validation.reason}, ${validation.cuesCount} cues, ${validation.durationMs}ms) — trying next.`);
+        continue;
+      }
+
+      const subId = crypto.createHash('md5').update(sub.url).digest('hex').slice(0, 20);
+      subtitleStore.set(subId, { content: srtContent, lang: sub.language });
+      finalUrl = `${baseUrl}/srt/${subId}.srt`;
+      log('info', `[Handler] ✅ Returning converted SRT to Stremio (candidate ${i + 1}/${ranked.length}, ${sub.source}, ${langName}, ${validation.cuesCount} cues, ${Math.round(validation.durationMs / 1000)}s duration)`);
+      log('info', `[Handler]    release="${(sub.releaseName || '').substring(0, 80)}" file="${(sub.fileName || '').substring(0, 80)}"`);
+      log('info', `[Handler]    served at ${finalUrl}`);
       return {
         subtitles: [{
           id: sub.id,
@@ -203,7 +288,7 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
     }
   }
 
-  log('error', `[Handler] All ${candidates.length} candidates failed conversion. Returning empty.`);
+  log('error', `[Handler] All ${ranked.length} candidates failed conversion or validation. Returning empty.`);
   return { subtitles: [] };
 }
 
