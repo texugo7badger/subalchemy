@@ -23,10 +23,10 @@ class NyaaProvider extends BaseProvider {
     const torrents = [];
     $('item').slice(0, 5).each((i, el) => {
       const title = $(el).find('title').text();
-      const link = $(el).find('link').text();
+      // O RSS do Nyaa fornece o infoHash diretamente
       const infoHash = $(el).find('infoHash').text();
       if (infoHash) {
-        const magnet = `magnet:?xt=urn:btih:${infoHash}&dn=${encodeURIComponent(title)}&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce`;
+        const magnet = `magnet:?xt=urn:btih:${infoHash}&dn=${encodeURIComponent(title)}&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce&tr=udp%3A%2F%2Fopen.demonii.com%3A1337%2Fannounce&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A80%2Fannounce`;
         torrents.push({ title, magnet });
       }
     });
@@ -37,6 +37,7 @@ class NyaaProvider extends BaseProvider {
     if (!query.searchQuery) return { subtitles: [] };
 
     let torrents = [];
+    
     // 1. Busca focada em Ironclad + Multi-Subs
     const ironcladQuery = `[Ironclad] ${query.searchQuery} Multi-Subs`;
     try { torrents = await this.fetchTorrents(ironcladQuery); } catch (e) {}
@@ -53,10 +54,11 @@ class NyaaProvider extends BaseProvider {
     }
 
     const allSubs = [];
+    // Limita a 2 torrents para não estourar o tempo limite no Render
     for (const torrent of torrents.slice(0, 2)) {
       try {
         log('info', `[NyaaSI] Streaming torrent: ${torrent.title}`);
-        const extractedSubs = await extractSubtitles(torrent.magnet, 45000);
+        const extractedSubs = await extractSubtitles(torrent.magnet, query.languages, 25000);
         
         for (const sub of extractedSubs) {
           const lang = normalizeLanguage(sub.language);
@@ -74,7 +76,7 @@ class NyaaProvider extends BaseProvider {
             fileName: `${torrent.title}.srt`,
             releaseName: torrent.title,
             format: 'srt',
-            needsConversion: false
+            needsConversion: false // Já extraímos em formato SRT
           }));
         }
       } catch (e) {

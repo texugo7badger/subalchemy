@@ -21,6 +21,7 @@ class NekoBTProvider extends BaseProvider {
     
     const $ = cheerio.load(response.data);
     const magnets = [];
+    // Procura por links magnéticos na página de resultados
     $('a[href^="magnet:?"]').slice(0, 5).each((i, el) => {
       const magnet = $(el).attr('href');
       const title = $(el).attr('title') || $(el).closest('tr').find('.title').text().trim() || 'Unknown';
@@ -33,6 +34,7 @@ class NekoBTProvider extends BaseProvider {
     if (!query.searchQuery) return { subtitles: [] };
 
     let magnets = [];
+    
     // 1. Busca focada em Erai-raws + MultiSub
     const eraiQuery = `[Erai-raws] ${query.searchQuery} MultiSub`;
     try { magnets = await this.fetchMagnets(eraiQuery); } catch (e) {}
@@ -49,28 +51,33 @@ class NekoBTProvider extends BaseProvider {
     }
 
     const allSubs = [];
+    // Limita a 2 torrents para não estourar o tempo limite no Render
     for (const torrent of magnets.slice(0, 2)) {
-      log('info', `[NekoBT] Streaming torrent: ${torrent.title}`);
-      const extractedSubs = await extractSubtitles(torrent.magnet, 45000);
-      
-      for (const sub of extractedSubs) {
-        const lang = normalizeLanguage(sub.language);
-        const subId = crypto.createHash('md5').update(torrent.magnet + sub.trackNumber).digest('hex').slice(0, 20);
-        subtitleStore.set(subId, { content: sub.content, lang: lang });
+      try {
+        log('info', `[NekoBT] Streaming torrent: ${torrent.title}`);
+        const extractedSubs = await extractSubtitles(torrent.magnet, query.languages, 25000);
         
-        const baseUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 7000}`;
-        const finalUrl = `${baseUrl}/srt/${subId}.srt`;
+        for (const sub of extractedSubs) {
+          const lang = normalizeLanguage(sub.language);
+          const subId = crypto.createHash('md5').update(torrent.magnet + sub.trackNumber).digest('hex').slice(0, 20);
+          subtitleStore.set(subId, { content: sub.content, lang: lang });
+          
+          const baseUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 7000}`;
+          const finalUrl = `${baseUrl}/srt/${subId}.srt`;
 
-        allSubs.push(new SubtitleResult({
-          id: `nekobt-${subId}`,
-          url: finalUrl,
-          language: lang,
-          source: 'NekoBT',
-          fileName: `${torrent.title}.srt`,
-          releaseName: torrent.title,
-          format: 'srt',
-          needsConversion: false
-        }));
+          allSubs.push(new SubtitleResult({
+            id: `nekobt-${subId}`,
+            url: finalUrl,
+            language: lang,
+            source: 'NekoBT',
+            fileName: `${torrent.title}.srt`,
+            releaseName: torrent.title,
+            format: 'srt',
+            needsConversion: false // Já extraímos em formato SRT
+          }));
+        }
+      } catch (e) {
+        log('warn', `[NekoBT] Failed to process torrent: ${e.message}`);
       }
     }
 
