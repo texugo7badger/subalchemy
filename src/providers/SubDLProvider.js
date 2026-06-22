@@ -41,14 +41,18 @@ class SubDLProvider extends BaseProvider {
             fullUrl = urlObj.toString();
           } catch (e) {}
 
+          const ext = (sub.release_name || '').split('.').pop()?.toLowerCase() || 'srt';
+          const validExts = ['srt', 'ass', 'ssa', 'vtt', 'sub', 'zip'];
+          const format = validExts.includes(ext) ? ext : 'srt';
           return new SubtitleResult({
             id: `subdl-${sub.subtitleId || sub.url}`,
             url: fullUrl,
             language: normalizeLang(sub.language),
             source: 'subdl',
-            fileName: sub.release_name ? sub.release_name + '.srt' : 'unknown.srt',
-            format: 'zip',
-            needsConversion: true
+            fileName: sub.release_name || 'unknown' + '.' + format,
+            format,
+            needsConversion: format !== 'srt',
+            releaseName: sub.release_name || 'Unknown'
           });
         })
       };

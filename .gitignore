@@ -1,3 +1,6 @@
 ```text
 node_modules/
 .env
+.claude
+.openclaude
+refactoring

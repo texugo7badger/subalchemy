@@ -5,8 +5,6 @@ function freeSources() {
     <div class="sources-logos">
         <div class="source-badge"><span class="dot"></span>OpenSubtitles (Keyless)</div>
         <div class="source-badge"><span class="dot"></span>AnimeTosho (Anime Subs)</div>
-        <div class="source-badge"><span class="dot"></span>Nyaa (Anime Streams)</div>
-        <div class="source-badge"><span class="dot"></span>NekoBT (Anime Streams)</div>
     </div>
 </div>
   `;

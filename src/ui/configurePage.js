@@ -13,7 +13,7 @@ function getConfigureHTML(baseUrl) {
         
         ${apiKeyField({ id: 'subsourceApiKey', label: 'SubSource API Key', tooltipText: 'Community-driven subtitle source.', getLinkUrl: 'https://subsource.net/', linkText: 'Get SubSource API Key' })}
         
-        ${apiKeyField({ id: 'wyzieApiKey', label: 'Wyzie API Key', tooltipText: 'Free API, excellent for anime.', getLinkUrl: 'https://github.com/wyzie/Subs', linkText: 'Get Wyzie API Key' })}
+        ${apiKeyField({ id: 'wyzieApiKey', label: 'Wyzie API Key', tooltipText: 'Free API, excellent for anime.', getLinkUrl: 'https://store.wyzie.io/redeem', linkText: 'Get Wyzie API Key' })}
 
         ${languageSelector()}
 
