@@ -30,6 +30,7 @@ class AnimeToshoProvider extends BaseProvider {
         const href = $(el).attr('href');
         const text = $(el).text().trim();
 
+        // Filtra links que contêm /subs/file/ (padrão do AnimeTosho) ou terminam com extensões
         if (href && (href.includes('/subs/file/') || href.endsWith('.ass') || href.endsWith('.srt') || href.endsWith('.zip'))) {
           
           let fullUrl = href;
@@ -41,18 +42,13 @@ class AnimeToshoProvider extends BaseProvider {
           const releaseName = $(el).closest('.home_list_entry, .search_result, div').find('.link, .title').first().text().trim() || text;
           
           let ext = 'ass';
-          if (fullUrl.endsWith('.srt')) ext = 'srt';
-          else if (fullUrl.endsWith('.zip')) ext = 'zip';
+          if (fullUrl.endsWith('.srt') || text.endsWith('.srt')) ext = 'srt';
+          else if (fullUrl.endsWith('.zip') || text.endsWith('.zip')) ext = 'zip';
 
-          const langSource = releaseName || text;
+          // O texto do link geralmente contém o idioma, ex: "Portuguese.ass" ou "POR-BR.ass"
+          const langSource = text + ' ' + releaseName;
           let lang = normalizeLanguage(langSource) || 'eng';
           
-          // Prioriza Erai, Ironclad, Toonshub
-          if (releaseName.toLowerCase().match(/erai|ironclad|toonshub/)) {
-            if (langSource.toLowerCase().match(/por|pt-br|brazilian/)) lang = 'por';
-            else if (langSource.toLowerCase().match(/eng|english/)) lang = 'eng';
-          }
-
           subs.push(new SubtitleResult({
             id: `atosho-${fullUrl}`,
             url: fullUrl,
@@ -66,7 +62,7 @@ class AnimeToshoProvider extends BaseProvider {
         }
       });
 
-      // Dedupe
+      // Remove duplicatas
       const uniqueSubs = [];
       const seenUrls = new Set();
       for (const sub of subs) {

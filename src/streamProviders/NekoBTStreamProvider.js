@@ -21,15 +21,25 @@ class NekoBTStreamProvider {
             const $ = cheerio.load(response.data);
             const streams = [];
 
+            const trackers = [
+                'udp://tracker.opentrackr.org:1337/announce',
+                'udp://open.demonii.com:1337/announce'
+            ];
+
             $('a[href^="magnet:?"]').slice(0, 10).each((i, el) => {
                 const magnet = $(el).attr('href');
                 const title = $(el).attr('title') || $(el).closest('tr').find('.title').text().trim() || 'Unknown Release';
 
-                if (magnet && title) {
+                // Extrai o infoHash do magnet link
+                const match = magnet.match(/btih:([a-fA-F0-9]{40})/);
+                if (match && match[1]) {
+                    const infoHash = match[1].toLowerCase();
+                    
                     streams.push({
                         name: `SubAlchemy NekoBT 🐱`,
                         title: title,
-                        magnet: magnet
+                        infoHash: infoHash,
+                        sources: trackers
                     });
                 }
             });

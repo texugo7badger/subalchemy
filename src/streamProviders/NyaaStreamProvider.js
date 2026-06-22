@@ -21,24 +21,22 @@ class NyaaStreamProvider {
             const $ = cheerio.load(response.data, { xmlMode: true });
             const streams = [];
 
+            const trackers = [
+                'udp://tracker.opentrackr.org:1337/announce',
+                'udp://open.demonii.com:1337/announce',
+                'udp://tracker.openbittorrent.com:80/announce'
+            ];
+
             $('item').slice(0, 10).each((i, el) => {
                 const title = $(el).find('title').text().trim();
                 const infoHash = $(el).find('infoHash').text().trim();
                 
                 if (title && infoHash) {
-                    // Monta o magnet link com trackers saudáveis
-                    const trackers = [
-                        'udp://tracker.opentrackr.org:1337/announce',
-                        'udp://open.demonii.com:1337/announce',
-                        'udp://tracker.openbittorrent.com:80/announce',
-                        'wss://tracker.btorrent.xyz'
-                    ];
-                    const magnet = `magnet:?xt=urn:btih:${infoHash}&dn=${encodeURIComponent(title)}&tr=${trackers.map(t => encodeURIComponent(t)).join('&tr=')}`;
-
                     streams.push({
                         name: `SubAlchemy Nyaa 🌸`,
                         title: title,
-                        magnet: magnet
+                        infoHash: infoHash,
+                        sources: trackers
                     });
                 }
             });
