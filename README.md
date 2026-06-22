@@ -104,7 +104,7 @@ Stremio (Tizen 9) ◀──HTTPS SRT── https://subalchemy.onrender.com/srt/<
 - 🔄 **ASS / SSA → SRT** — `ass-compiler` parses dialogues/slices/fragments, `subsrt-ts` builds the SRT body
 - 📦 **ZIP → SRT** — `adm-zip` extracts the inner file (`.srt` first, then `.ass`/`.ssa` with on-the-fly conversion, then `.vtt`)
 - 🧠 **Smart encoding detection** — `chardet` + BOM sniffing + iconv-lite for Shift-JIS / Big5 / GBK / EUC-KR / KOI8-R / Windows-1250/1252
-- 🧹 **Ad removal** — strips leftover ASS style tags and promotional lines (`opensubtitles`, `subscene`, `subsource`, `wyzie`, `animetosho`, `support us`, `buy me a coffee`)
+- 🧹 **Ad removal** — strips leftover ASS style tags and promotional lines.
 
 ### Language Support
 - **12 languages** with display names (Portuguese (Brazil), English, Spanish, French, German, Italian, Japanese, Chinese Simplified, Chinese Traditional, Russian, Arabic, Hindi, Korean)
@@ -122,7 +122,7 @@ Stremio (Tizen 9) ◀──HTTPS SRT── https://subalchemy.onrender.com/srt/<
 - ⚙️ **Component-based config page** — `head`, `header`, `apiKeyField`, `languageSelector`, `installButton`, `freeSources`, `footer`
 - 🧪 **Per-key Test buttons** — SubDL, SubSource, and Wyzie keys are validated against the live API before install
 - 🏷️ **Free sources badge** — `OpenSubtitles (Keyless)` + `AnimeTosho (Anime Subs)` highlighted as no-config-needed
-- 💜 **Ko-fi overlay widget** — floating "Support me" button + traditional Ko-fi banner in the footer
+- 💜 **Ko-fi support** — floating "Support me" overlay widget (powered by Ko-fi) plus a traditional Ko-fi banner in the footer of `/configure`
 
 ---
 
@@ -303,23 +303,22 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 ---
 
 <div align="center">
-  <sub><i>Did this magic solve your TV's subtitle problem? 🦡<br>If you can, buy me a coffee to keep the cauldron bubbling!</i></sub>
-  <br><br>
-  <a href="https://ko-fi.com/G4H521S5GK">
-    <img src="https://storage.ko-fi.com/cdn/kofi5.png?v=6" height="36" alt="Buy Me a Coffee at ko-fi.com" />
-  </a>
-</div>
 
-<script src='https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'></script>
-<script>
-  kofiWidgetOverlay.draw('texugo7badger', {
-    'type': 'floating-chat',
-    'floating-chat.donateButton.text': 'Support me',
-    'floating-chat.donateButton.background-color': '#794bc4',
-    'floating-chat.donateButton.text-color': '#fff'
-  });
-</script>
+### 💜 Support SubAlchemy
+
+<sub><i>Did this magic solve your TV's subtitle problem? 🦡<br>If you can, buy me a coffee to keep the cauldron bubbling!</i></sub>
+
+<br>
+
+<a href="https://ko-fi.com/G4H521S5GK">
+  <img src="https://storage.ko-fi.com/cdn/kofi5.png?v=6" height="40" alt="Buy Me a Coffee at ko-fi.com" />
+</a>
+
+<br><br>
+
+<sub>Made with 🧪 by <a href="https://github.com/texugo7badger">@texugo7badger</a></sub>
+
+</div>
 ```
 
 ---
-
