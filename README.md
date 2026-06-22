@@ -263,39 +263,6 @@ When watching on your TV, simply select the subtitle provided by SubAlchemy, and
 
 ---
 
-## 📋 Changelog
-
-### v2.3.0 (current)
-- 🐛 **CRITICAL FIX:** Register `routes.proxy` in `addon.js` — the `/srt/:subId.srt` endpoint was missing, so converted SRT subtitles returned `404` on Tizen 9.
-- 🐛 **FIX:** `zipExtract.js` now extracts `.ass`/`.ssa`/`.vtt` from inside ZIPs (previously only `.srt`), with on-the-fly ASS→SRT conversion. SubSource ZIPs with ASS tracks now play correctly.
-- ✨ **NEW:** Ko-fi floating overlay widget on `/configure` (purple "Support me" button).
-- 📚 **NEW:** Complete README rewrite with architecture, flow diagram, and full file-tree.
-
-### v2.2.0
-- ✨ Universal language priority fallback — user picks up to 3 languages in priority order; falls back to English if none match.
-- 🐛 **FIX:** `generatePlaceholder` was imported by `languages.js` but didn't exist in `subtitleUtils.js` — would crash if called.
-- 🔄 `languages.js` now re-exports from `utils/subtitleUtils.js` (single source of truth).
-- 🌍 `subtitleUtils.js` now supports all 12 selector languages + fan-sub variants (`Brazilian_CR`, `POR-BR`, etc.).
-
-### v2.1.0 — v2.1.1
-- ✨ **NEW:** `SubsourceProvider` using `api.subsource.net/api/v1` (user-supplied `X-API-Key`).
-- ✨ Per-provider DEBUG logs with elapsed ms and result count.
-- 🐛 AnimeTosho: `&disp=attachments` param (was returning 0 subtitles), precise `a[href*="/subs/file/"]` selector, paginates up to 2 pages.
-- 🐛 Wyzie: send `x-api-key` header from user config; WARN-skip when missing.
-- 🐛 OpenSubtitles: detect HTTP 401, attempt token refresh via `OS_API_KEY`, fall back to v2 API.
-- 🐛 SubDL: detect subtitle format from `release_name` extension (was hardcoded `zip`).
-- 🐛 Orchestrator: dedupe by `(source|language|format|releaseName)` instead of URL-only.
-- 🧪 `/api/test-api` now validates SubSource and Wyzie keys against the live API.
-- 🔗 Wyzie "Get API Key" link updated to [store.wyzie.io/redeem](https://store.wyzie.io/redeem).
-
-### v2.0.0
-- Initial modular architecture: providers, converters, handlers, routes, UI components.
-- OpenSubtitles via WARP SOCKS5 proxy to bypass cloud IP blocks.
-- Encrypted config (AES-256-GCM) in install URL.
-- Kitsu API integration for anime.
-
----
-
 ## 📜 License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details. Feel free to contribute, open issues, or submit pull requests!

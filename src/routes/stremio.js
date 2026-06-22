@@ -8,43 +8,64 @@ const { parseConfigParam } = require('../config');
 registerDefaultProviders();
 const router = express.Router();
 
-function setStremioHeaders(res) {
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 'max-age=86400, public');
+function setStremioHeaders(res, opts = {}) {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  // Manifest: short cache so Stremio picks up config changes (behaviorHints,
+  // logo, etc.) quickly. Subtitles: 60s cache is fine since /srt/:id is
+  // immutable per id.
+  if (opts.manifest) {
+    res.setHeader('Cache-Control', 'max-age=60, public, must-revalidate');
+  } else {
+    res.setHeader('Cache-Control', 'max-age=60, public');
+  }
 }
 
+/**
+ * Plain /manifest.json — no config yet. Addon is in "configurationRequired"
+ * state. Stremio shows the addon but won't request subtitles until the user
+ * installs with a config.
+ */
 router.get('/manifest.json', (req, res) => {
-  setStremioHeaders(res);
+  setStremioHeaders(res, { manifest: true });
   const manifest = generateManifest({});
-  manifest.behaviorHints.configurationRequired = true;
   res.json(manifest);
 });
 
+/**
+ * /:config/manifest.json — addon installed with user config.
+ *
+ * When the user has provided any config (API keys or languages), we clear
+ * `configurationRequired` so Stremio starts requesting subtitles. The
+ * `configurable: true` flag stays so the user can still click "Configure"
+ * in Stremio to edit their keys/languages later.
+ */
 router.get('/:config/manifest.json', (req, res) => {
+  setStremioHeaders(res, { manifest: true });
   const { config } = parseConfigParam(req.params.config);
   const manifest = generateManifest(config);
-  
-  if (config && Object.keys(config).length > 0) {
-    delete manifest.behaviorHints.configurationRequired;
-  }
-  
-  setStremioHeaders(res);
   res.json(manifest);
 });
 
+/**
+ * Subtitles handler — Stremio calls this when the user opens a stream.
+ *
+ * Path patterns (both supported by Stremio):
+ *   /:config/subtitles/:type/:id.json
+ *   /:config/subtitles/:type/:id/:extra.json
+ */
 const subtitlesHandler = async (req, res) => {
   setStremioHeaders(res);
   try {
     const { config } = parseConfigParam(req.params.config);
     config._userAgent = req.headers['user-agent'] || '';
-    
+
     const args = {
       type: req.params.type,
       id: req.params.id,
       extra: req.params.extra || ''
     };
-    
+
     const baseUrl = `${req.protocol}://${req.get('host')}`;
     const result = await handleSubtitlesRequest(args, config, baseUrl);
     res.json(result);
