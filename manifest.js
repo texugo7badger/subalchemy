@@ -26,7 +26,7 @@ function generateManifest(config = {}) {
     // always works regardless of GitHub raw cache or path changes.
     // Using RENDER_EXTERNAL_URL ensures the absolute URL is correct on Render.
     logo: `${process.env.RENDER_EXTERNAL_URL || ''}/assets/subalchemy-logo.png`,
-    background: "https://images.unsplash.com/photo-1570284613060-766c33850e00?q=80&w=1470&auto=format&fit=crop",
+    background: `${process.env.RENDER_EXTERNAL_URL || ''}/assets/subalchemy-background.png`,
     description: `Universal SRT Converter for Tizen 9 & Anime${langDisplay}. Fetches subtitles from 5 sources and converts VTT/ASS/ZIP to SRT on the fly.`,
     resources: ["subtitles"],
     types: ["movie", "series"],

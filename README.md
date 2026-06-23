@@ -300,8 +300,24 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 <br>
 
 <a href="https://ko-fi.com/G4H521S5GK">
-  <img src="https://storage.ko-fi.com/cdn/kofi5.png?v=6" height="40" alt="Buy Me a Coffee at ko-fi.com" />
+  <img src="https://storage.ko-fi.com/cdn/kofi5.png?v=6" height="36" alt="Buy Me a Coffee at ko-fi.com" />
 </a>
+
+&nbsp;&nbsp;&nbsp;&nbsp;
+
+<a href="https://livepix.gg/texugo7badger">
+  <img src="https://imgur.com/jjPuVUG" height="36" alt="Doe via LivePix (PIX)" />
+</a>
+
+<br><br>
+
+<a href="https://livepix.gg/texugo7badger">
+  <img src="https://widget.livepix.gg/embed/32b1c970-93a8-4e6c-ae2c-7ea06d6cceb9" width="180" alt="Escaneie o QR Code para doar via LivePix" />
+</a>
+
+<br>
+
+<sub>Scan the QR Code or click the badge above to donate via <b>LivePix (PIX)</b></sub>
 
 <br><br>
 
