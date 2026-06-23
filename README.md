@@ -311,13 +311,17 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 
 <br><br>
 
-<a href="https://livepix.gg/texugo7badger">
-  <img src="https://i.imgur.com/8op6gjT.png" width="180" alt="Escaneie o QR Code para doar via LivePix" />
-</a>
+<iframe 
+  src="https://widget.livepix.gg/embed/32b1c970-93a8-4e6c-ae2c-7ea06d6cceb9" 
+  width="150" 
+  height="150" 
+  style="border:0;" 
+  title="Widget de doação LivePix">
+</iframe>
 
 <br>
 
-<sub>Scan the QR Code or click the badge above to donate via <b>LivePix (PIX)</b></sub>
+<sub>Escaneie o QR Code → Doe via <b>LivePix (PIX)</b></sub>
 
 <br><br>
 
