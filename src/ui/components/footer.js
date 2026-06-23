@@ -3,18 +3,8 @@ function footer() {
 <div class="donation">
     <p>Did this magic solve your TV's subtitle problem? 🦡<br>If you can, buy me a coffee to keep the cauldron bubbling!</p>
     <div style="display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;">
-      <a href='https://ko-fi.com/G4H521S5GK' target='_blank'><img height='36' style='border:0px;height:42px;' src='https://storage.ko-fi.com/cdn/kofi5.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
-      <a href='https://livepix.gg/texugo7badger' target='_blank'><img height='36' style='border:0px;height:42px;border-radius:8px;' src='https://i.imgur.com/jjPuVUG.png' border='0' alt='Doe via LivePix (PIX)' /></a>
-    </div>
-    <div style="margin-top:16px;text-align:center;">
-      <iframe 
-        src="https://widget.livepix.gg/embed/32b1c970-93a8-4e6c-ae2c-7ea06d6cceb9" 
-        width="150" 
-        height="150" 
-        style="border:0;" 
-        title="Widget de doação LivePix">
-      </iframe>
-      <br><small>Escaneie o QR Code → Doe via <b>LivePix (PIX)</b></small>
+      <a href='https://ko-fi.com/G4H521S5GK' target='_blank'><img height='36' style='border:0px;height:50px;' src='https://storage.ko-fi.com/cdn/kofi5.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
+      <a href='https://livepix.gg/texugo7badger' target='_blank'><img height='36' style='border:0px;height:50px;border-radius:8px;' src='https://i.imgur.com/jjPuVUG.png' border='0' alt='Doe via LivePix (PIX)' /></a>
     </div>
 </div>
 <script src='https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'></script>
