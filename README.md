@@ -306,13 +306,13 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 &nbsp;&nbsp;&nbsp;&nbsp;
 
 <a href="https://livepix.gg/texugo7badger">
-  <img src="https://imgur.com/jjPuVUG" height="36" alt="Doe via LivePix (PIX)" />
+  <img src="https://i.imgur.com/jjPuVUG.png" height="36" alt="Doe via LivePix (PIX)" />
 </a>
 
 <br><br>
 
 <a href="https://livepix.gg/texugo7badger">
-  <img src="https://widget.livepix.gg/embed/32b1c970-93a8-4e6c-ae2c-7ea06d6cceb9" width="180" alt="Escaneie o QR Code para doar via LivePix" />
+  <img src="https://i.imgur.com/8op6gjT.png" width="180" alt="Escaneie o QR Code para doar via LivePix" />
 </a>
 
 <br>

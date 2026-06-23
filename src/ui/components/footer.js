@@ -4,10 +4,10 @@ function footer() {
     <p>Did this magic solve your TV's subtitle problem? 🦡<br>If you can, buy me a coffee to keep the cauldron bubbling!</p>
     <div style="display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;">
       <a href='https://ko-fi.com/G4H521S5GK' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi5.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
-      <a href='https://livepix.gg/texugo7badger' target='_blank'><img height='36' style='border:0px;height:36px;border-radius:8px;' src='https://imgur.com/jjPuVUG' border='0' alt='Doe via LivePix (PIX)' /></a>
+      <a href='https://livepix.gg/texugo7badger' target='_blank'><img height='36' style='border:0px;height:36px;border-radius:8px;' src='https://i.imgur.com/jjPuVUG.png' border='0' alt='Doe via LivePix (PIX)' /></a>
     </div>
     <div style="margin-top:16px;text-align:center;">
-      <a href='https://livepix.gg/texugo7badger' target='_blank'><img width='150' style='border:0px;' src='https://widget.livepix.gg/embed/32b1c970-93a8-4e6c-ae2c-7ea06d6cceb9' border='0' alt='Escaneie o QR Code para doar via LivePix' /></a>
+      <a href='https://livepix.gg/texugo7badger' target='_blank'><img width='150' style='border:0px;' src='https://i.imgur.com/8op6gjT.png' border='0' alt='Escaneie o QR Code para doar via LivePix' /></a>
       <br><small>Escaneie o QR Code → Doe via <b>LivePix (PIX)</b></small>
     </div>
 </div>
