@@ -12,7 +12,7 @@ Samsung Tizen 9 (and several other TV/streaming sticks) **does not support WebVT
 
 On top of that, cloud-hosted addons often get **`403 Forbidden`** from OpenSubtitles because their IPs are flagged as datacenters. SubAlchemy solves both issues by running inside a **Docker container with Cloudflare WARP** (routing OpenSubtitles traffic through a local SOCKS5 proxy at `127.0.0.1:40000`) and serving the final SRT with full CORS headers, `Content-Disposition`, and immutable cache — exactly what Samsung Tizen 9 needs to load the subtitle without "Failed to load external subtitle" errors.
 
-Languages
+## Languages
 
 Pick up to 3 preferred languages in priority order (drag-free, click-to-add). The addon supports 12 languages out of the box:
 
