@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 echo "=========================================="
 echo "Starting D-Bus system bus..."
@@ -7,7 +8,6 @@ dbus-daemon --system --nofork &
 sleep 2
 
 echo "Starting Cloudflare WARP Daemon..."
-# CORREÇÃO: Silencia os logs do WARP para não poluir o painel do Render
 warp-svc > /dev/null 2>&1 &
 sleep 3
 
@@ -20,5 +20,4 @@ sleep 5
 echo "WARP Proxy is running on 127.0.0.1:40000"
 echo "=========================================="
 
-# Inicia a aplicação Node.js
 exec node addon.js

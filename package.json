@@ -1,12 +1,12 @@
 {
   "name": "subalchemy",
-  "version": "2.4.3",
-  "description": "Universal SRT Converter & Anime Streamer for Tizen 9.",
+  "version": "2.4.4",
+  "description": "Universal SRT Converter for TV Android and Tizen 9.",
   "main": "addon.js",
   "scripts": {
     "start": "node addon.js"
   },
-  "keywords": ["stremio", "addon", "subtitles", "srt", "tizen", "anime"],
+  "keywords": ["stremio", "addon", "subtitles", "srt", "tizen","android","TV", "anime"],
   "author": "",
   "license": "MIT",
   "type": "commonjs",

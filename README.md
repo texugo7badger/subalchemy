@@ -1,293 +1,142 @@
-# SubAlchemy 🧙‍♂️
+# SubAlchemy
 
-**Version 2.4.3** · [![Deploy on Render](https://img.shields.io/badge/Deploy-Render-46E3B7.svg)](https://render.com) · [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+**Version 2.4.4** · [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A Stremio addon that acts as a **universal SRT converter and subtitle aggregator**. It fetches subtitles from 5 sources in parallel — **OpenSubtitles (keyless), AnimeTosho (scraping), SubDL, SubSource, and Wyzie** — and converts every modern format (VTT, ASS/SSA, ZIP, .xz, .gz) into the classic SRT format on-the-fly.
 
-Designed specifically to solve the Samsung TV Tizen 9 subtitle problem: Tizen 9 strictly requires SRT and fails to load VTT or ASS files, leaving 90% of community subtitles unusable. SubAlchemy transmutes them all into SRT and serves them back to Stremio with perfect timing.
+---
 
-➡️ **[Click here to install SubAlchemy](https://subalchemy.onrender.com/configure)**
+## The Problem
+
+Samsung Tizen 9 (and several other TV/streaming sticks) **does not support WebVTT (`.vtt`) or Advanced SubStation Alpha (`.ass`/`.ssa`) subtitles** natively inside Stremio. Most community subtitle uploads for animes, movies and series are in one of those formats — so when the user clicks "subtitles" on the TV, they get nothing.
+
+On top of that, cloud-hosted addons often get **`403 Forbidden`** from OpenSubtitles because their IPs are flagged as datacenters. SubAlchemy solves both issues by running inside a **Docker container with Cloudflare WARP** (routing OpenSubtitles traffic through a local SOCKS5 proxy at `127.0.0.1:40000`) and serving the final SRT with full CORS headers, `Content-Disposition`, and immutable cache — exactly what Samsung Tizen 9 needs to load the subtitle without "Failed to load external subtitle" errors.
+
+Languages
+
+Pick up to 3 preferred languages in priority order (drag-free, click-to-add). The addon supports 12 languages out of the box:
+
+    🇧🇷 Portuguese (Brazil) · 🇬🇧 English · 🇪🇸 Spanish · 🇫🇷 French
+    🇩🇪 German · 🇮🇹 Italian · 🇯🇵 Japanese · 🇨🇳 Chinese (Simplified + Traditional)
+    🇷🇺 Russian · 🇸🇦 Arabic · 🇮🇳 Hindi · 🇰🇷 Korean
 
 ---
 
-## 📺 The Problem
+## Quick Start (Docker, local)
 
-Samsung Tizen 9 (and several other TV/streaming sticks) does not support WebVTT (`.vtt`) or Advanced SubStation Alpha (`.ass`/`.ssa`) subtitles natively inside Stremio. Most community subtitle uploads for animes, movies and series are in one of those formats — so when the user clicks "subtitles" on the TV, they get nothing.
+> For enthusiasts self-hosting on a Linux box with Docker. The Dockerfile and `.env.production.example` in this repo are the only files you need to commit; your real `.env.production` and `docker-compose.yml` stay on the host and are NOT committed.
 
-On top of that, cloud-hosted addons (like a free Render instance) often get blocked (`403 Forbidden`) by OpenSubtitles because their IPs are flagged as datacenters. And users want subtitles in their own language — not always English, not always Portuguese.
+### 1. Build the image
 
-## ✨ The Solution
+```bash
+git clone https://github.com/texugo7badger/subalchemy.git
+cd subalchemy
+docker build -t subalchemy .
+```
 
-SubAlchemy intercepts every `/subtitles` request Stremio makes. For each request it:
+### 2. Prepare your `.env.production`
 
-1. **Resolves the title** — IMDB id via Cinemeta, or Kitsu id for anime.
-2. **Queries all 5 providers in parallel** with per-provider deadline (10s default). Any provider that fails or times out is logged at `WARN` and skipped — the batch never aborts.
-3. **Filters by the user's preferred languages** (up to 3, in priority order). Falls back to English if none match.
-4. **Iterates candidates** — if the first subtitle fails to download/convert (e.g. OpenSubtitles .gz returns 401), the handler automatically tries the next one, up to 30 per language. AnimeTosho ASS files are the most reliable fallback.
-5. **Downloads the chosen subtitle** (ASS / VTT / ZIP / .xz / .gz / SRT), detects compression by magic bytes, decompresses if needed, and normalizes encoding to UTF-8.
-6. **Converts to SRT** using `ass-compiler` (for ASS) or a regex pipeline (for VTT). For ZIPs, extracts the inner `.srt`/`.ass`/`.ssa`/`.vtt` and converts if needed. For `.xz` (AnimeTosho), decompresses with `lzma-native` first.
-7. **Cleans promotional text** ("opensubtitles", "subscene", etc.) so the user only sees clean subs.
-8. **Serves the final SRT** from its own HTTPS endpoint `https://subalchemy.onrender.com/srt/<id>.srt` with full CORS headers, `Content-Disposition`, and immutable cache — exactly what Samsung Tizen 9 needs to load the subtitle without "Failed to load external subtitle" errors.
+```bash
+cp .env.production.example .env.production
+# Edit at minimum:
+#   PORT=10000
+#   BASE_URL=http://localhost:10000   (or your HTTPS URL if behind a reverse proxy)
+#   ENCRYPTION_KEY=  (generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+```
 
-To definitively bypass cloud IP blocks, the addon runs inside a **Docker container with Cloudflare WARP**, routing all OpenSubtitles traffic through a local SOCKS5 proxy at `127.0.0.1:40000`. The legacy `rest.opensubtitles.org` REST API is used (no user API key needed); if it returns `401`, the provider attempts a one-shot token refresh via the new `api.opensubtitles.com/api/v1/login` endpoint using `OS_API_KEY`.
+### 3. Run the container
+
+The container needs `/dev/net/tun` and `NET_ADMIN` + `SYS_ADMIN` capabilities for the Cloudflare WARP daemon to work.
+
+```bash
+docker run -d \
+  --name subalchemy \
+  --cap-add NET_ADMIN \
+  --cap-add SYS_ADMIN \
+  --device /dev/net/tun:/dev/net/tun \
+  -p 10000:10000 \
+  --env-file .env.production \
+  subalchemy
+```
+
+If `/dev/net/tun` does not exist on your host:
+
+```bash
+sudo modprobe tun
+echo "tun" | sudo tee /etc/modules-load.d/tun.conf   # persist across reboots
+```
+
+### 4. Open the configuration page
+
+Visit **http://localhost:10000/configure**, pick up to 3 languages, optionally plug in API keys, and click **Install in Stremio**.
+
+### 5. Verify the WARP proxy
+
+```bash
+# Inside the container — should print "Status update: Connected"
+docker exec subalchemy warp-cli status
+
+# IP via WARP (should differ from your host's public IP)
+docker exec subalchemy curl -sS --socks5-hostname 127.0.0.1:40000 https://cloudflare.com/cdn-cgi/trace | grep ^ip=
+```
 
 ---
 
-## 🚀 Installation for Users
+## Local Development (without Docker)
 
-➡️ **[Click here to install SubAlchemy](https://subalchemy.onrender.com/configure)**
+> Without Docker, the OpenSubtitles provider may receive `403` from cloud-flagged IPs (your home ISP is usually fine). All other providers work normally. `lzma-native` requires a C/C++ toolchain (`build-essential` on Linux, Xcode CLI tools on macOS).
 
-### Configuration Page
+```bash
+npm install
+cp .env.production.example .env   # edit PORT/BASE_URL for dev
+npm start
+# Visit http://localhost:7000/configure
+```
 
-When you open the install link you'll see a sleek configuration page at `/configure`. The addon works out-of-the-box with **OpenSubtitles** and **AnimeTosho** (no keys required!). For a wider catalog you can optionally plug in 3 free API keys:
+---
 
-| Provider | Mechanism | Auth | Where to get a key |
+## Providers
+
+| Provider | Mechanism | Auth | Key needed? |
 |---|---|---|---|
-| **OpenSubtitles** | REST `rest.opensubtitles.org` via WARP | Keyless (`X-User-Agent: VLSub 0.10.3`) | — (no key needed) |
-| **AnimeTosho** | HTML scraping `animetosho.xyz` (cheerio) | None (browser UA) | — (no key needed) |
+| **OpenSubtitles** | REST `rest.opensubtitles.org` via WARP | Keyless (`X-User-Agent: VLSub 0.10.3`) | No |
+| **AnimeTosho** | HTML scraping `animetosho.xyz` | None | No |
 | **SubDL** | REST `api.subdl.com/api/v1/subtitles` | `api_key` query param | [subdl.com/panel/api](https://subdl.com/panel/api) |
-| **SubSource** | REST `api.subsource.net/api/v1` | `X-API-Key` header | [subsource.net](https://subsource.net/) → My Profile |
+| **SubSource** | REST `api.subsource.net/api/v1` | `X-API-Key` header | [subsource.net](https://subsource.net/) |
 | **Wyzie** | REST `sub.wyzie.io/api/v1/subs` | `x-api-key` header | [store.wyzie.io/redeem](https://store.wyzie.io/redeem) |
 
-Each key has a **Test** button that probes the live API and shows `Valid!` (green) or the error message (red, e.g. `Error 401: ...`).
-
-### Languages
-
-Pick up to **3 preferred languages** in priority order (drag-free, click-to-add). The addon supports 12 languages out of the box:
-
-- 🇧🇷 Portuguese (Brazil) · 🇬🇧 English · 🇪🇸 Spanish · 🇫🇷 French
-- 🇩🇪 German · 🇮🇹 Italian · 🇯🇵 Japanese · 🇨🇳 Chinese (Simplified + Traditional)
-- 🇷🇺 Russian · 🇸🇦 Arabic · 🇮🇳 Hindi · 🇰🇷 Korean
-
-Fan-sub variants like `Brazilian_CR` (Erai-raws) and `POR-BR` (Ironclad) are auto-recognized.
-
-### Install
-
-Click **Install in Stremio** — your config (API keys + languages) is encoded into the install URL. Stremio opens, the addon is registered, and subtitles start appearing with the label `SubAlchemy [Portuguese (Brazil)]` (or `(Fallback)` if it had to fall back to English).
+Each key has a **Test** button on `/configure` that probes the live API and shows `Valid!` (green) or the error message (red, e.g. `Error 401: ...`).
 
 ---
 
-## 🧭 How It Works (User Flow)
+## Environment Variables
 
-```
-Stremio (Tizen 9) ──GET /subtitles/movie/tt0111161.json──▶  SubAlchemy (Render)
-                                                                  │
-                                                                  ▼
-                                            ┌─────────────────────────────────────┐
-                                            │ 1. Resolve title via Cinemeta API   │
-                                            │ 2. Query 5 providers in parallel    │
-                                            │    • OpenSubtitles (WARP, keyless)  │
-                                            │    • AnimeTosho  (scraping)         │
-                                            │    • SubDL       (user api_key)     │
-                                            │    • SubSource   (user X-API-Key)   │
-                                            │    • Wyzie       (user x-api-key)   │
-                                            │ 3. Pick best sub by user priority   │
-                                            │ 4. Iterate candidates on failure    │
-                                            │    (OS 401 → try next AnimeTosho)   │
-                                            │ 5. Download → detect compression →  │
-                                            │    decompress .xz/.gz/.zip →        │
-                                            │    convert ASS/VTT → SRT            │
-                                            │ 6. Clean ads, store in memory       │
-                                            └─────────────────────────────────────┘
-                                                                  │
-Stremio (Tizen 9) ◀──HTTPS SRT── https://subalchemy.onrender.com/srt/<id>.srt
-                              (CORS + Content-Disposition + immutable cache)
-```
+See [`.env.production.example`](.env.production.example) for the full list with comments. The two **required** ones are:
+
+| Variable | Example | Purpose |
+|---|---|---|
+| `PORT` | `10000` | Port Express listens to inside the container. |
+| `BASE_URL` | `http://localhost:10000` | Public URL of the addon (used to build absolute `/srt/<id>.srt` URLs returned to Stremio). Use HTTPS in production. |
+
+Everything else (`OS_API_KEY`, `SUBDL_API_KEY`, `SUBSOURCE_API_KEY`, `WYZIE_API_KEY`, `ENCRYPTION_KEY`, `LOG_LEVEL`, `PROVIDER_DEADLINE_MS`) is optional.
 
 ---
 
-## 🌟 Features
-
-### Subtitle Aggregation
-- **5 providers in parallel** with `Promise.all` + per-provider deadline race
-- Per-provider DEBUG log: `[animetosho] Completed in 1200ms, returned 24 results.`
-- Deduplication by `(source, language, format, releaseName)` — no double subs
-- Any single provider failure logs WARN and returns empty — **never aborts the batch**
-- **Candidate iteration** — if the first subtitle fails to convert (e.g. OS 401), the handler automatically tries the next one (up to 30 per language)
-
-### Format Conversion (in-memory, no disk I/O)
-- 🔄 **VTT → SRT** — regex pipeline that strips `WEBVTT` header, fixes timestamps (`.` → `,`), and removes cue indices
-- 🔄 **ASS / SSA → SRT** — `ass-compiler` parses dialogues/slices/fragments, `subsrt-ts` builds the SRT body
-- 📦 **ZIP → SRT** — `adm-zip` extracts the inner file (`.srt` first, then `.ass`/`.ssa` with on-the-fly conversion, then `.vtt`)
-- 🗜️ **.xz → SRT** — `lzma-native` decompresses AnimeTosho's `.xz`-compressed ASS files (magic bytes `fd 37 7a 58`) before conversion
-- 🗜️ **.gz → SRT** — `zlib.gunzipSync` decompresses OpenSubtitles `.gz`-compressed SRT files
-- 🧠 **Magic-byte format detection** — `detectFormat()` inspects the first bytes of every download to identify compression and container format, since URLs often have no extension (AnimeTosho uses numeric file IDs)
-- 🧠 **Smart encoding detection** — `chardet` + BOM sniffing + iconv-lite for Shift-JIS / Big5 / GBK / EUC-KR / KOI8-R / Windows-1250/1252
-- 🧹 **Ad removal** — strips leftover ASS style tags and promotional lines.
-
-### Language Support
-- **12 languages** with display names (Portuguese (Brazil), English, Spanish, French, German, Italian, Japanese, Chinese Simplified, Chinese Traditional, Russian, Arabic, Hindi, Korean)
-- **Fan-sub variant recognition** — `Brazilian_CR`, `POR-BR`, `Portuguese[BR] [por, ASS]` all normalize to `por`
-- **Priority fallback** — user picks up to 3 languages in priority order; if none match, falls back to English and tags the sub as `(Fallback)`
-
-### Infrastructure
-- 🛡️ **Cloudflare WARP** — Docker container with `warp-cli` routing OpenSubtitles through `socks5://127.0.0.1:40000` to bypass cloud IP blocks
-- 🔒 **Encrypted configuration** — API keys are password fields in the UI; the install URL encodes them with AES-256-GCM (if `ENCRYPTION_KEY` is set) or base64-JSON fallback
-- 🆓 **Keyless OpenSubtitles** — uses the public `VLSub 0.10.3` X-User-Agent header (sent on BOTH search and download); falls back to v2 API + token refresh on `401`
-- 🌸 **Anime support** — Kitsu API integration resolves anime titles by `kitsu:ID` so AnimeTosho can scrape them by name
-- ⚡ **Inflight cache** — concurrent identical requests deduplicate via `InflightCache` so we don't hit providers twice for the same Stremio id
-- 🖼️ **Self-hosted logo** — manifest logo served from `/assets/subalchemy-logo.png` (not GitHub raw) so it always renders in Stremio
-
-### UI
-- ⚙️ **Component-based config page** — `head`, `header`, `apiKeyField`, `languageSelector`, `installButton`, `freeSources`, `footer`
-- 🧪 **Per-key Test buttons** — SubDL, SubSource, and Wyzie keys are validated against the live API before install
-- 🏷️ **Free sources badge** — `OpenSubtitles (Keyless)` + `AnimeTosho (Anime Subs)` highlighted as no-config-needed
-- 💜 **Ko-fi support** — floating "Support me" overlay widget (powered by Ko-fi) plus a traditional Ko-fi banner in the footer of `/configure`
-
-### Tizen 9 Compatibility
-- 📺 **Full CORS headers** on `/srt/:subId.srt` — `Access-Control-Allow-Origin`, `Access-Control-Allow-Methods`, `Access-Control-Allow-Headers`, `Access-Control-Max-Age`
-- 📄 **Content-Disposition** — `attachment; filename="<id>.srt"` so the Tizen player recognizes the file as a subtitle
-- 🗄️ **Immutable cache** — `Cache-Control: public, max-age=31536000, immutable` so the player can re-fetch on timeline scrub without hitting the converter again
-- 🔀 **OPTIONS preflight handler** — some Tizen firmware sends an OPTIONS preflight before the GET; we respond `204 No Content` with the full CORS header set
-
----
-
-## 💻 For Developers & Self-Hosting
-
-This project features a fully modular architecture, open-source under the MIT license. You are welcome to clone, modify, and deploy your own instance.
-
-### Repository Structure
-
-```
-subalchemy/
-├── addon.js                    # Express server entrypoint (boot, route registration)
-├── manifest.js                 # Stremio addon manifest (logo, behaviorHints, config schema)
-├── Dockerfile                  # node:20-slim + Cloudflare WARP
-├── entrypoint.sh               # Starts dbus + warp-svc + warp-cli + node
-├── package.json                # v2.3.2
-├── README.md
-└── src/
-    ├── config.js               # parseConfigParam (URL-decoded JSON / base64 JSON)
-    ├── constants.js            # OS_BASE, OS_UA, THROTTLE_MS, regexes
-    ├── languages.js            # Re-export of utils/subtitleUtils (single source of truth)
-    ├── logger.js               # Timestamped leveled logger
-    ├── utils.js                # parseStremioId, isStremioClient, sleep
-    ├── handlers/
-    │   └── subtitles.js        # ⭐ Universal priority-fallback + candidate iteration
-    ├── providers/
-    │   ├── BaseProvider.js     # SubtitleResult class (interface contract)
-    │   ├── ProviderManager.js  # ⭐ Orchestrator: parallel search + dedupe
-    │   ├── index.js            # registerDefaultProviders() — 5 providers
-    │   ├── OpenSubtitlesProvider.js   # REST .org via WARP, 401 → v2 token refresh
-    │   ├── AnimeToshoProvider.js      # Scraping with &disp=attachments + cheerio
-    │   ├── SubDLProvider.js            # api.subdl.com (user api_key)
-    │   ├── SubsourceProvider.js        # api.subsource.net v1 (user X-API-Key)
-    │   └── WyzieProvider.js            # sub.wyzie.io (user x-api-key)
-    ├── converters/
-    │   ├── index.js            # ⭐ convertToSrt() — magic-byte detection + .xz/.gz/.zip decompression
-    │   ├── assToSrt.js         # ass-compiler + subsrt-ts
-    │   ├── vttToSrt.js         # Regex pipeline
-    │   ├── zipExtract.js       # .srt / .ass / .ssa / .vtt inside ZIP
-    │   ├── encoding.js         # chardet + iconv-lite
-    │   └── removeAds.js        # Promotional text stripper
-    ├── cache/
-    │   ├── InflightCache.js    # Dedup concurrent identical provider queries
-    │   └── SubtitleStore.js    # In-memory map for converted SRT payloads
-    ├── routes/
-    │   ├── index.js            # Aggregator
-    │   ├── stremio.js          # /manifest.json + /:config/subtitles/... (60s cache)
-    │   ├── configure.js        # /configure (HTML page)
-    │   ├── configApi.js        # /api/config/encode + /api/test-api
-    │   ├── proxy.js            # ⭐ /srt/:subId.srt — full CORS + Content-Disposition + immutable cache
-    │   └── health.js           # /health (Render uptime check)
-    ├── meta/
-    │   ├── cinemeta.js         # v3-cinemeta.strem.io for IMDB → title
-    │   └── kitsu.js            # kitsu.io API for anime ID → title
-    └── ui/
-        ├── configurePage.js    # HTML composition
-        ├── components/
-        │   ├── head.js         # <head> with logo + styles
-        │   ├── header.js       # Logo + SubSense recommendation
-        │   ├── apiKeyField.js  # Password input + Test button + Get Key link
-        │   ├── languageSelector.js  # Max-3 multiselect
-        │   ├── installButton.js
-        │   ├── freeSources.js  # Keyless provider badges
-        │   ├── index.js        # Barrel
-        │   └── footer.js       # ⭐ Ko-fi banner + floating overlay widget
-        └── assets/
-            ├── app.js          # Language picker + Test API + Install logic
-            ├── styles.css
-            └── subalchemy-logo.png
-```
-
-### Local Development (Without Docker)
-
-> ⚠️ Without Docker, the OpenSubtitles provider may receive `403` from cloud-flagged IPs (your home ISP is usually fine). All other providers work normally. Also, `lzma-native` requires a C/C++ toolchain to compile — on Linux/macOS install `build-essential` or Xcode CLI tools; on Windows install `windows-build-tools`.
-
-1. Clone the repository.
-2. `npm install`
-3. Create a `.env` file (optional):
-   ```env
-   PORT=7000
-   LOG_LEVEL=info
-   # Optional: enable OpenSubtitles v2 fallback
-   OS_API_KEY=
-   # Optional: default API keys pre-filled in the UI
-   SUBDL_API_KEY=
-   SUBSOURCE_API_KEY=
-   WYZIE_API_KEY=
-   # Optional: AES-256-GCM encryption for user config in install URL
-   ENCRYPTION_KEY=
-   ```
-4. `npm start`
-5. Visit `http://localhost:7000/configure`
-6. Add `http://localhost:7000/manifest.json` to Stremio.
-
-### Deploy to Render (Free Tier with Docker)
-
-This addon is optimized for free-tier deployment on Render.com using Docker to enable the Cloudflare WARP proxy.
-
-1. Push this repository to your GitHub.
-2. Go to [Render.com](https://render.com/) and create a new **Web Service**.
-3. Connect your GitHub repository.
-4. **Crucial:** In the "Runtime" setting, select **Docker** (not Node). Render will automatically detect the `Dockerfile`.
-5. *(Optional but recommended)* Add an Environment Variable named `ENCRYPTION_KEY` with a 64-character hex string:
-   ```bash
-   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-   ```
-   This secures user API keys with AES-256-GCM in the install URL.
-6. *(Optional)* Add `OS_API_KEY` for OpenSubtitles v2 fallback (get one at [opensubtitles.com/api](https://www.opensubtitles.com/api)).
-7. Deploy and get your public HTTPS URL (`https://<your-service>.onrender.com`).
-8. Share `https://<your-service>.onrender.com/configure` with your users.
-
-> 💡 **Note on `lzma-native`:** Since v2.3.2, the addon depends on `lzma-native` to decompress AnimeTosho `.xz` files. This is a native addon that requires `build-essential` / `python3` / `make` / `g++` to compile during `npm install`. The default `node:20-slim` base image does not include these — if your Render build fails with a compile error from `lzma-native`, update the `Dockerfile` to install them before `npm install`:
-> ```dockerfile
-> RUN apt-get update && apt-get install -y python3 make g++
-> ```
-
----
-
-## 🛠 Tech Stack
+## Tech Stack
 
 - **Runtime:** Node.js 20 (Docker `node:20-slim`)
 - **Web server:** Express 4
-- **Stremio SDK:** `stremio-addon-sdk` 1.6 (manifest only — HTTP layer is our own Express)
-- **HTTP client:** Axios 1.18
-- **Proxy:** `socks-proxy-agent` 8 + Cloudflare WARP daemon
-- **HTML parsing:** Cheerio 1.2 (AnimeTosho scraping)
-- **ASS parsing:** `ass-compiler` 0.1 + `subsrt-ts` 2.1
-- **ZIP extraction:** `adm-zip` 0.5
-- **XZ decompression:** `lzma-native` 8.0 (AnimeTosho `.xz` files)
-- **GZ decompression:** Node.js built-in `zlib` (OpenSubtitles `.gz` files)
-- **Encoding detection:** `chardet` 2.1 + `iconv-lite` 0.7
-- **Config encoding:** `crypto` (AES-256-GCM) or base64-JSON fallback
+- **HTTP client:** Axios 1.18 + `socks-proxy-agent` 8 (for WARP)
+- **ASS parsing:** `ass-compiler` + `subsrt-ts`
+- **ZIP / XZ / GZ:** `adm-zip` / `lzma-native` / Node `zlib`
+- **Encoding detection:** `chardet` + `iconv-lite`
+- **HTML scraping:** `cheerio` (AnimeTosho)
 
 ---
 
-## 🤝 Recommended Setup: SubAlchemy + SubSense
+## License
 
-For the best experience across all your devices, use **SubSense** alongside **SubAlchemy**:
-
-- **SubSense** — great for PC and Mobile. It provides fast access to modern formats (VTT/ASS) without conversion overhead.
-- **SubAlchemy** — essential for Samsung TVs and TV sticks. It fetches the same sources but transmutes them into SRT.
-
-When watching on your TV, simply select the subtitle provided by SubAlchemy, and it will work flawlessly!
-
----
-
-## 📜 License
-
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details. Feel free to contribute, open issues, or submit pull requests!
+MIT — see [LICENSE](LICENSE). Free to clone, modify, and self-host.
 
 ---
 

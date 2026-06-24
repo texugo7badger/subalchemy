@@ -1,6 +1,9 @@
 ```text
-node_modules/
-.env
+node_modules
+.env.production
 .claude
 .openclaude
 refactoring
+*.log
+npm-debug.log
+docker-compose.yml

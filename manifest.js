@@ -18,15 +18,16 @@ function generateManifest(config = {}) {
   const hasConfig = config && Object.keys(config).length > 0 &&
     (config.subdlApiKey || config.subsourceApiKey || config.wyzieApiKey || config.languages);
 
+  const baseUrl = (process.env.BASE_URL || '').replace(/\/+$/, '');
+
   return {
     id: "org.subalchemy.addon",
     version: packageJson.version,
     name: "SubAlchemy",
     // Logo is served from our own Express static route (/assets/) so it
     // always works regardless of GitHub raw cache or path changes.
-    // Using RENDER_EXTERNAL_URL ensures the absolute URL is correct on Render.
-    logo: `${process.env.RENDER_EXTERNAL_URL || ''}/assets/subalchemy-logo.png`,
-    background: `${process.env.RENDER_EXTERNAL_URL || ''}/assets/subalchemy-background.png`,
+    logo: `${baseUrl}/assets/subalchemy-logo.png`,
+    background: `${baseUrl}/assets/subalchemy-background.png`,
     description: `Universal SRT Converter for Tizen 9 & Anime${langDisplay}. Fetches subtitles from 5 sources and converts VTT/ASS/ZIP to SRT on the fly.`,
     resources: ["subtitles"],
     types: ["movie", "series"],
@@ -49,9 +50,6 @@ function generateManifest(config = {}) {
       { key: 'wyzieApiKey', type: 'password', title: 'Wyzie API Key (Optional)', default: process.env.WYZIE_API_KEY || '' },
       { key: 'languages', type: 'text', title: 'Languages (e.g., en,pt-br,es)', default: 'en,pt-br,es,fr,de,it,ja,zh,ru,ar,hi,ko' }
     ],
-    // Claim signature issued by stremio-addons.net — proves developer
-    // ownership of this addon on the official community catalog.
-    // Generated at https://stremio-addons.net when claiming this addon.
     stremioAddonsConfig: {
       issuer: "https://stremio-addons.net",
       signature: "eyJhbGciOiJkaXIiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2In0..ezJe__BEcuVb9Y0aChzNeQ.mxI17tUcdBeB-XITmwMhCHaR0-kH9iPiDJtW6manWIOM-9XAQfBJy9VnwP6fFTmAVVPb9wuRxTj0kbkDgZycGrVGiuzjkB4od71OgTIZloYIgHD7JxdJh2Msx_3trGoz.-MBCmSbXkDq-6X4OL7ThtA"

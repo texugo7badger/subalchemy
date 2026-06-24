@@ -66,29 +66,14 @@ const subtitlesHandler = async (req, res) => {
       extra: req.params.extra || ''
     };
 
-    // Compute baseUrl — prefer RENDER_EXTERNAL_URL (always HTTPS on Render)
-    // because req.protocol can be 'http' when behind Render's reverse proxy
-    // even though the public URL is HTTPS. Returning an HTTP URL to Stremio
-    // causes the player (especially Tizen 9) to receive a 301 redirect that
-    // some firmwares silently fail to follow, resulting in the subtitle
-    // never appearing on screen even though it was generated successfully.
-    //
-    // Note: RENDER_EXTERNAL_URL on Render can come either as bare host
-    // ("subalchemy.onrender.com") or with protocol ("https://subalchemy.onrender.com").
-    // We normalise to a clean https:// URL to avoid the "https://https://..."
-    // double-protocol bug that breaks Tizen 9.
     let baseUrl;
-    const renderUrl = process.env.RENDER_EXTERNAL_URL;
-    if (renderUrl) {
-      if (renderUrl.startsWith('http://') || renderUrl.startsWith('https://')) {
-        // Replace any protocol with https (Render is always HTTPS in production)
-        baseUrl = renderUrl.replace(/^https?:\/\//, 'https://');
-      } else {
-        // Bare host — prepend https://
-        baseUrl = `https://${renderUrl}`;
+    const envBaseUrl = process.env.BASE_URL;
+    if (envBaseUrl && envBaseUrl.trim()) {
+      baseUrl = envBaseUrl.trim().replace(/\/+$/, '');
+      if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+        baseUrl = `https://${baseUrl}`;
       }
     } else {
-      // Local dev — use req.protocol (http for localhost)
       baseUrl = `${req.protocol}://${req.get('host')}`;
     }
     log('debug', `[StremioRoute] baseUrl for /srt/ URLs: ${baseUrl}`);

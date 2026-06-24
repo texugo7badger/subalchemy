@@ -37,6 +37,7 @@ app.use((req, res) => {
 });
 
 app.listen(PORT, () => {
+  const publicUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
   log('info', `[SubAlchemy] Server started on port ${PORT}`);
-  log('info', `[SubAlchemy] Addon accessible at: ${process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`}/manifest.json`);
+  log('info', `[SubAlchemy] Addon accessible at: ${publicUrl}/manifest.json`);
 });
