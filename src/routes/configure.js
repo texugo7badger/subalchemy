@@ -25,7 +25,7 @@ const COOKIE_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 days
  * Without #3, Stremio's "Configure" button on an installed addon returns
  * 404 "Not found" because no route matches `/:config/configure`.
  */
-router.get(['/', '/configure', '/:config/configure'], (req, res) => {
+router.get(['/', '/configure', '/:config/configure', '/*/configure', '/*/*/configure'], (req, res) => {
   let userId = req.cookies?.[COOKIE_NAME];
   if (!userId) {
     userId = userConfigStore.generateUserId();
