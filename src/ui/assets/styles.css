@@ -352,3 +352,42 @@ input[type="password"]:focus {
   margin-right: 8px;
   box-shadow: 0 0 5px #28a745;
 }
+
+/* v2.4.5: Language category chips — filter the language list by group */
+.lang-count {
+  font-size: 0.75em;
+  color: #a8c0ff;
+  font-weight: 400;
+  margin-left: 4px;
+}
+
+.lang-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.lang-cat-chip {
+  padding: 5px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(168, 192, 255, 0.3);
+  background: rgba(0, 0, 0, 0.3);
+  color: #a8c0ff;
+  font-size: 0.75em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lang-cat-chip:hover {
+  background: rgba(138, 43, 226, 0.2);
+  border-color: #8a2be2;
+  color: #fff;
+}
+
+.lang-cat-chip.active {
+  background: #8a2be2;
+  border-color: #8a2be2;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(138, 43, 226, 0.5);
+}
