@@ -1,6 +1,6 @@
 # SubAlchemy
 
-**Version 2.4.5** · [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+**Version 2.4.6** · [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A Stremio addon that acts as a **universal SRT converter and subtitle aggregator**. It fetches subtitles from 5 sources in parallel — **OpenSubtitles (keyless), AnimeTosho (scraping), SubDL, SubSource, and Wyzie** — and converts every modern format (VTT, ASS/SSA, ZIP, .xz, .gz) into the classic SRT format on-the-fly.
 

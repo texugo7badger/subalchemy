@@ -7,3 +7,4 @@ refactoring
 *.log
 npm-debug.log
 docker-compose.yml
+scripts

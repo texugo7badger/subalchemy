@@ -1,6 +1,6 @@
 {
   "name": "subalchemy",
-  "version": "2.4.5",
+  "version": "2.4.6",
   "description": "Universal SRT Converter for TV Android and Tizen 9.",
   "main": "addon.js",
   "scripts": {
