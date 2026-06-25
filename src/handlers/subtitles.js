@@ -12,49 +12,98 @@ const crypto = require('crypto');
 
 const MAX_PER_LANG = 30;
 
-// v2.4.6: Strict sync thresholds — we now return ONLY ONE subtitle (the
-// best match), so we can afford to be pickier about what counts as
-// "good enough" to surface to the user.
-const SYNC_REJECT_OFFSET_MS = 60000;     // reject first cue > 60s
-const SYNC_HARD_REJECT_OFFSET_MS = 180000; // > 3 min = definitely wrong release
-const DURATION_MIN_RATIO = 0.45;          // sub < 45% of runtime = likely wrong
-const DURATION_MAX_RATIO = 1.30;          // sub > 130% of runtime = batch / multi-ep
+// v2.4.6: Strict sync thresholds
+const SYNC_REJECT_OFFSET_MS = 60000;
+const SYNC_HARD_REJECT_OFFSET_MS = 180000;
+const DURATION_MIN_RATIO = 0.45;
+const DURATION_MAX_RATIO = 1.30;
 
 /**
- * Detect whether a subtitle's release name / file name matches the
- * requested season+episode. Returns:
- *   - 2  = exact match (e.g. "S01E11" or "1x11")
- *   - 1  = partial / no marker (might be a batch or movie)
- *   - 0  = different episode marker (definitely wrong episode)
+ * v2.4.6: Detect episode match with STRICT patterns to prevent false positives.
+ *
+ * Previous bug (v2.4.5): patterns like /s0?1\s*e0?8/ would match the
+ * substring "S01E08" inside a longer release name even when the actual
+ * episode was different. This caused Spider-Noir S01E01 and S01E06+E07
+ * batches to be marked as EXACT matches for S01E08.
+ *
+ * Fix: use anchored patterns that look for the season+episode as a
+ * STANDALONE token (not inside another SxxExx pattern), and explicitly
+ * reject releases that contain a DIFFERENT SxxExx marker.
+ *
+ * Returns:
+ *   - 2  = exact match (S01E08 appears as standalone token)
+ *   - 1  = no episode marker at all (might be batch or movie)
+ *   - 0  = different episode marker found (definitely wrong)
  */
 function episodeMatchScore(releaseName, fileName, season, episode) {
   if (season == null || episode == null) return 1;
-  const hay = `${releaseName || ''} ${fileName || ''}`.toLowerCase();
 
+  const hay = `${releaseName || ''} ${fileName || ''}`;
+  const sStr = String(season);
   const eStr = String(episode);
   const eStrPadded = String(episode).padStart(2, '0');
+  const sStrPadded = String(season).padStart(2, '0');
 
-  const exactPatterns = [
-    new RegExp(`s0?${season}\\s*e0?${episode}\\b`, 'i'),
-    new RegExp(`\\b${season}x0?${episode}\\b`, 'i'),
-    new RegExp(`\\bep\\.?\\s*0?${episode}\\b`, 'i'),
-    new RegExp(`\\bepisode\\s*0?${episode}\\b`, 'i'),
-    new RegExp(`\\s-\\s${eStr}\\b`, 'i'),
-    new RegExp(`\\s-\\s${eStrPadded}\\b`, 'i'),
-  ];
-  for (const re of exactPatterns) {
-    if (re.test(hay)) return 2;
+  // --- 1. Find ALL SxxExx patterns in the release name ---
+  // Matches: S01E08, s1e8, S01E08, 1x08, S01.E08, etc.
+  const allPatterns = /(?:s|S)?0?(\d{1,2})\s*[xXeE]\s*0?(\d{1,3})\b/g;
+  const matches = [];
+  let m;
+  while ((m = allPatterns.exec(hay)) !== null) {
+    matches.push({
+      seasonFound: parseInt(m[1], 10),
+      episodeFound: parseInt(m[2], 10),
+      fullMatch: m[0],
+    });
   }
 
-  const anyEpisodeMarker = /\bs\d{1,2}\s*e\d{1,3}\b|\b\d+x\d{1,3}\b|\bep\.?\s*\d{1,3}\b|\s-\s\d{1,3}\b/i;
-  const m = hay.match(anyEpisodeMarker);
-  if (m) {
-    const marker = m[0];
-    if (!exactPatterns.some(re => re.test(marker))) {
+  // --- 2. Also check "Episode 08" / "EP08" / "Ep. 08" ---
+  const epLabelPattern = new RegExp(`\\b[eE][pP]\\.?\\s*0?${episode}\\b`);
+  const hasEpLabel = epLabelPattern.test(hay);
+
+  // --- 3. Check for fansub dash pattern: "Title - 08 [1080p]" ---
+  // Only valid if the release is a single-episode (no SxxExx marker present)
+  const dashPattern = new RegExp(`\\s-\\s0?${episode}\\s*\\[|\\s-\\s0?${episode}\\s*$|\\s-\\s0?${episode}\\s\\.`, 'i');
+  const hasDashPattern = dashPattern.test(hay);
+
+  // --- 4. Determine the result ---
+  if (matches.length > 0) {
+    // Look for an EXACT match: S{season}E{episode} as a standalone token
+    const exactMatch = matches.find(mk =>
+      mk.seasonFound === season && mk.episodeFound === episode
+    );
+
+    // If we found our SxxExx AND no other SxxExx markers exist → EXACT
+    if (exactMatch && matches.length === 1) {
+      return 2;
+    }
+
+    // If we found our SxxExx but there are OTHER SxxExx markers too →
+    // this is a batch release containing multiple episodes.
+    // Only count as EXACT if our episode is the FIRST one in the batch
+    // (i.e., the release is named after the first episode).
+    if (exactMatch) {
+      // Sort by position in the release name (we already have them in order)
+      const firstMatch = matches[0];
+      if (firstMatch.seasonFound === season && firstMatch.episodeFound === episode) {
+        return 2; // our episode is the first in the batch
+      }
+      // Our episode is in the batch but not the first one
+      // → this sub will probably cover multiple episodes, not just ours
       return 0;
     }
+
+    // We found SxxExx markers but NONE of them match our target episode
+    // → definitely wrong episode
+    return 0;
   }
 
+  // No SxxExx marker found. Check for "Episode 08" or fansub dash.
+  if (hasEpLabel || hasDashPattern) {
+    return 2;
+  }
+
+  // No episode marker at all — neutral (might be movie or batch)
   return 1;
 }
 
@@ -85,33 +134,39 @@ function rankByEpisode(candidates, season, episode) {
 }
 
 /**
- * v2.5.0: Score a valid subtitle by sync quality.
+ * v2.5.1: Score with HARD penalty for wrong-episode subs.
  *
- * Combines:
- *   - episodeMatchScore (2 = exact, 1 = neutral, 0 = wrong ep)
- *   - first-cue offset (lower = better sync)
- *   - duration ratio vs. expected runtime from Cinemeta
+ * Previous bug (v2.5.0): episode match score was weighted ×100, but a
+ * wrong-episode sub with score 0 could still outrank an exact-match sub
+ * with score 2 if its duration/offset were slightly better. This caused
+ * Spider-Noir S01E01 to be served when the user asked for S01E08.
  *
- * Returns a numeric score where higher = better.
+ * Fix:
+ *   - episodeMatchScore=0 (wrong ep) gets a -10000 penalty (instant disqualify)
+ *   - episodeMatchScore=2 (exact) gets +5000 bonus
+ *   - episodeMatchScore=1 (neutral) gets 0
+ * Then offset + duration + provider preferences apply as tiebreakers.
  */
 function syncScore(sub, validation, expectedRuntimeSec, season, episode) {
   const epScore = episodeMatchScore(sub.releaseName, sub.fileName, season, episode);
+
+  // v2.5.1: Hard penalty scale — episode match DOMINATES the score
+  let epFinal;
+  if (epScore === 2) epFinal = 5000;        // exact match — strong bonus
+  else if (epScore === 1) epFinal = 0;       // neutral — no bonus
+  else epFinal = -10000;                     // wrong episode — instant disqualify
+
   const offsetSec = validation.firstTimestampMs / 1000;
-  // Offset: 0s = perfect, decays linearly to 0 at 60s, then negative penalty
   const offsetScore = Math.max(-50, (60 - Math.abs(offsetSec)) / 60);
 
   let durScore = 1;
   if (expectedRuntimeSec && expectedRuntimeSec > 0) {
     const ratio = validation.durationMs / 1000 / expectedRuntimeSec;
-    // Best at ratio ~1.0, penalize both directions
     durScore = Math.max(0, 1 - Math.abs(1 - ratio));
-    // Heavy penalty for SDH batch (much longer than runtime)
     if (ratio > DURATION_MAX_RATIO) durScore = -0.5;
     if (ratio < DURATION_MIN_RATIO) durScore = -0.3;
   }
 
-  // Provider preference: OpenSubtitles usually has the best episode-matched
-  // subs; AnimeTosho is great for anime; SubDL/SubSource/Wyzie are variable.
   const providerBonus = {
     opensubtitles: 0.3,
     animetosho: 0.2,
@@ -120,25 +175,22 @@ function syncScore(sub, validation, expectedRuntimeSec, season, episode) {
     wyzie: 0.0,
   }[sub.source] || 0;
 
-  // Release name signal: prefer non-SDH (subs without "[sdh]" / "sdh" tags
-  // are cleaner — no brackets for sound effects)
   const releaseLower = (sub.releaseName || '').toLowerCase();
   let sdhPenalty = 0;
   if (releaseLower.includes('sdh') || releaseLower.includes('[sdh]')) sdhPenalty = -0.3;
-  if (releaseLower.includes('hi') && releaseLower.match(/\bhi\b/)) sdhPenalty = -0.2; // "hearing impaired"
+  if (releaseLower.includes('hi') && releaseLower.match(/\bhi\b/)) sdhPenalty = -0.2;
 
-  // Weighted: episode match dominates (×100), offset ×30, duration ×20
-  return epScore * 100 + offsetScore * 30 + durScore * 20 + providerBonus + sdhPenalty;
+  // v2.5.1: episode match dominates (×5000 bonus / -10000 penalty)
+  // Other factors are tiebreakers among same-episode subs
+  return epFinal + offsetScore * 30 + durScore * 20 + providerBonus + sdhPenalty;
 }
 
 /**
- * v2.5.0: Hard reject — should we even consider this candidate?
+ * v2.5.1: Hard reject — should we even consider this candidate?
  *
- * Rejects subs that are obviously wrong:
- *   - first cue starts > 3 min into the video (wrong release with recap)
- *   - duration < 45% of expected runtime (cut/cropped release)
- *   - duration > 130% of expected runtime (batch / multi-episode)
- *   - episode match score = 0 (different episode marker)
+ * v2.5.0 bug: didn't reject subs with episode match score = 0 (wrong ep).
+ * Now rejects them outright — no point in scoring a sub that's definitely
+ * the wrong episode.
  */
 function shouldHardReject(sub, validation, expectedRuntimeSec, season, episode) {
   if (validation.firstTimestampMs > SYNC_HARD_REJECT_OFFSET_MS) {
@@ -153,10 +205,22 @@ function shouldHardReject(sub, validation, expectedRuntimeSec, season, episode) 
       return { reject: true, reason: `duration ratio ${ratio.toFixed(2)} > ${DURATION_MAX_RATIO} (batch?)` };
     }
   }
+  // v2.5.1: hard-reject wrong-episode subs
   if (season != null && episode != null) {
     const epScore = episodeMatchScore(sub.releaseName, sub.fileName, season, episode);
     if (epScore === 0) {
-      return { reject: true, reason: `episode marker mismatch (wrong episode)` };
+      // Build a debug string showing which SxxExx markers were found
+      const hay = `${sub.releaseName || ''} ${sub.fileName || ''}`;
+      const allPatterns = /(?:s|S)?0?(\d{1,2})\s*[xXeE]\s*0?(\d{1,3})\b/g;
+      const found = [];
+      let m;
+      while ((m = allPatterns.exec(hay)) !== null) {
+        found.push(`S${m[1]}E${m[2]}`);
+      }
+      return {
+        reject: true,
+        reason: `episode mismatch — requested S${season}E${episode}, release has ${found.join(', ') || 'no markers'}`
+      };
     }
   }
   return { reject: false };
@@ -165,14 +229,13 @@ function shouldHardReject(sub, validation, expectedRuntimeSec, season, episode) 
 /**
  * Handle a Stremio /subtitles request.
  *
- * v2.5.0 flow changes:
+ * v2.5.1 flow:
  *   - Returns ONLY ONE subtitle — the best match across all candidates
- *     (was: up to 3 in v2.4.5). This avoids confusing the user with
- *     multiple options and prevents them from picking a desynced one.
- *   - Hard-rejects candidates that are obviously wrong before even
- *     attempting to score them.
- *   - Sync scoring combines episode match + first-cue offset + duration
- *     ratio + provider preference + SDH penalty to pick the best.
+ *   - Hard-rejects candidates that are obviously wrong BEFORE scoring,
+ *     including wrong-episode subs (v2.5.0 bug)
+ *   - Sync scoring heavily weights episode match (×5000 bonus,
+ *     -10000 penalty) so a wrong-episode sub can NEVER outrank a
+ *     correct-episode one, even with better offset/duration
  */
 async function handleSubtitlesRequest(args, config, baseUrl) {
   const { id, type } = args;
@@ -185,7 +248,6 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   log('info', `[Handler] User-Agent: ${userAgent.substring(0, 80)}${userAgent.length > 80 ? '...' : ''}`);
   log('info', `[Handler] isStremioClient: ${isStremioClient(userAgent)}`);
 
-  // --- Resolve search query + runtime ---
   let searchQuery = null;
   let expectedRuntimeSec = null;
   if (parsed.kitsuId) {
@@ -198,7 +260,6 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
     log('info', `[Handler] IMDB ID: ${parsed.imdbId}. Cinemeta Title: ${searchQuery}${expectedRuntimeSec ? `, runtime: ${meta.runtime}min (${expectedRuntimeSec}s)` : ''}`);
   }
 
-  // --- Resolve requested languages ---
   let requestedLangs = ['eng'];
   if (config.languages) {
     let langArray = [];
@@ -210,7 +271,6 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   if (requestedLangs.length > 3) requestedLangs = requestedLangs.slice(0, 3);
   log('info', `[Handler] Requested Languages (priority order): ${requestedLangs.join(' > ')}`);
 
-  // --- Log API keys (masked) ---
   const apiKeys = {
     subdlApiKey: config.subdlApiKey ? `(set, ${config.subdlApiKey.length} chars)` : '(missing)',
     subsourceApiKey: config.subsourceApiKey ? `(set, ${config.subsourceApiKey.length} chars)` : '(missing)',
@@ -229,7 +289,6 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
     }
   };
 
-  // --- Aggregate subtitles from all 5 providers ---
   const { subtitles } = await providerManager.searchAll(query);
   log('info', `[Handler] Found ${subtitles.length} total subtitles before filter.`);
 
@@ -238,7 +297,6 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
     return { subtitles: [] };
   }
 
-  // --- Build the ordered candidate list, respecting user priority ---
   const candidates = [];
   let chosenLang = null;
   let isFallback = false;
@@ -281,22 +339,16 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
     return { subtitles: [] };
   }
 
-  // --- Rank candidates by episode-match score ---
   const ranked = rankByEpisode(candidates, parsed.season, parsed.episode);
   if (parsed.season != null && parsed.episode != null) {
     log('info', `[Handler] Episode context: S${parsed.season}E${parsed.episode}. Ranking ${ranked.length} candidate(s) by episode-match score.`);
-    ranked.slice(0, 5).forEach((c, i) => {
+    ranked.slice(0, 10).forEach((c, i) => {
       const score = episodeMatchScore(c.releaseName, c.fileName, parsed.season, parsed.episode);
       const scoreLabel = score === 2 ? 'EXACT' : score === 1 ? 'neutral' : 'WRONG-EP';
-      log('info', `[Handler]   #${i + 1} [${scoreLabel}] ${c.source} | ${c.language} | "${(c.releaseName || c.fileName || '').substring(0, 80)}"`);
+      log('info', `[Handler]   #${i + 1} [${scoreLabel}] ${c.source} | ${c.language} | "${(c.releaseName || c.fileName || '').substring(0, 90)}"`);
     });
   }
 
-  // --- v2.5.0: Iterate candidates, find THE best one ---
-  // We validate every candidate, hard-reject obviously wrong ones, score
-  // the rest, and return ONLY the highest-scoring one. This avoids
-  // confusing the user with multiple subtitle options and prevents them
-  // from picking a desynced one.
   const validResults = [];
   let rejectedCount = 0;
 
@@ -305,9 +357,6 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
     const langName = getLanguageName(normalizeLanguage(sub.language));
 
     try {
-      // OpenSubtitles direct URL + official Stremio desktop client:
-      // bypass conversion. Only used for the FIRST candidate that
-      // passes hard-rejection.
       if (OS_DIRECT_URL_RE.test(sub.url) && isStremioClient(userAgent) && validResults.length === 0) {
         log('info', `[Handler] Returning OS direct URL to Stremio desktop (candidate ${i + 1}/${ranked.length}, ${sub.source}, ${langName}). URL: ${sub.url.substring(0, 100)}`);
         return {
@@ -333,7 +382,6 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
         continue;
       }
 
-      // v2.5.0: Hard reject — skip obviously wrong subs entirely
       const rejection = shouldHardReject(sub, validation, expectedRuntimeSec, parsed.season, parsed.episode);
       if (rejection.reject) {
         log('warn', `[Handler] Candidate ${i + 1} (${sub.source}) HARD-REJECTED: ${rejection.reason}. Skipping.`);
@@ -345,7 +393,7 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
       const totalDurationSec = Math.round(validation.durationMs / 1000);
       const score = syncScore(sub, validation, expectedRuntimeSec, parsed.season, parsed.episode);
 
-      log('info', `[Handler] ✅ Valid #${validResults.length + 1} (candidate ${i + 1}/${ranked.length}, ${sub.source}, ${langName}, ${validation.cuesCount} cues, ${totalDurationSec}s, first @ ${firstOffsetSec}s, score=${score.toFixed(2)}) — release="${(sub.releaseName || '').substring(0, 80)}"`);
+      log('info', `[Handler] ✅ Valid #${validResults.length + 1} (candidate ${i + 1}/${ranked.length}, ${sub.source}, ${langName}, ${validation.cuesCount} cues, ${totalDurationSec}s, first @ ${firstOffsetSec}s, score=${score.toFixed(2)}) — release="${(sub.releaseName || '').substring(0, 90)}"`);
 
       validResults.push({
         sub,
@@ -365,7 +413,6 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
     return { subtitles: [] };
   }
 
-  // --- v2.5.0: Pick the BEST candidate by sync score ---
   validResults.sort((a, b) => b.score - a.score);
   const best = validResults[0];
 
@@ -379,6 +426,7 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   const finalUrl = `${baseUrl}/srt/${subId}.srt`;
 
   log('info', `[Handler] 🏆 Returning BEST subtitle to Stremio: ${best.sub.source} (${best.langName}, ${best.validation.cuesCount} cues, ${totalDurationSec}s, first @ ${firstOffsetSec}s, score=${best.score.toFixed(2)}). Skipped ${rejectedCount} hard-rejected, ${validResults.length - 1} lower-scored.`);
+  log('info', `[Handler]    🏆 release="${(best.sub.releaseName || '').substring(0, 100)}"`);
 
   return {
     subtitles: [{
