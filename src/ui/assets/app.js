@@ -231,6 +231,9 @@ async function restoreConfig() {
     }
 }
 
-// Initialize on load — restore first (async), then render tags.
+// Initialize on load — render tags, restore saved config, and pre-populate
+// the language list so users see all 23 options without having to type.
 renderTags();
 restoreConfig();
+// Show the full language list on boot (filtered by active category chip).
+filterLangs();

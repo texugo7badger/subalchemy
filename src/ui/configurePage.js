@@ -34,7 +34,7 @@ function getConfigureHTML() {
 
         ${footer()}
     </div>
-    <script src="/assets/app.js"></script>
+    <script src="/assets/app.js?v=2.4.5"></script>
 </body>
 </html>
   `;
