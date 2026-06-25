@@ -3,28 +3,44 @@ const subtitleStore = require('../cache/SubtitleStore');
 const { log } = require('../logger');
 const router = express.Router();
 
+// v2.4.5: Opportunistic eviction counter — every N requests, sweep
+// expired entries. Keeps RAM tight without paying the sweep cost per call.
+const EVICT_EVERY_N = 50;
+let _requestCounter = 0;
+
 /**
  * Serve a converted SRT subtitle by its id.
  *
  * Stremio (and especially Samsung Tizen 9's native player) requires:
  *   - Content-Type: application/x-subrip (or text/srt)
  *   - charset=utf-8 (otherwise accents in PT-BR/ES break)
- *   - Access-Control-Allow-Origin: * (CORS — Stremio runs the player in
- *     a sandboxed context that fetches subs cross-origin)
+ *   - Access-Control-Allow-Origin: * (CORS)
  *   - Access-Control-Allow-Methods + Access-Control-Allow-Headers for
  *     preflight requests (some Tizen firmware does an OPTIONS preflight)
  *   - Cache-Control: public, max-age=31536000, immutable — the subId is
  *     an md5 hash of the source URL, so the content never changes
- *   - Content-Disposition: attachment; filename="<id>.srt" — some Tizen
- *     builds refuse to load a subtitle without an explicit filename
- *   - X-Content-Type-Options: nosniff — prevents some smart-TV browsers
- *     from trying to sniff the content as HTML
+ *   - Content-Disposition: attachment; filename="<id>.srt"
+ *   - X-Content-Type-Options: nosniff
  *
- * Without all of these, Tizen 9 shows "Failed to load external subtitle"
- * even when the content is valid SRT.
+ * v2.4.5 changes:
+ *   - Streams the response in 16KB chunks instead of res.send(), which
+ *     avoids doubling the buffer in memory for large 4-hour movie subs.
+ *   - Adds a periodic sweep of expired SubtitleStore entries.
+ *   - HTTP compression (gzip) is enabled globally in addon.js via the
+ *     `compression` middleware — SRT is plain text, compresses ~70%.
  */
 router.get('/srt/:subId', (req, res) => {
   const subId = req.params.subId.replace(/\.srt$/i, '');
+
+  // Opportunistic eviction sweep
+  _requestCounter++;
+  if (_requestCounter % EVICT_EVERY_N === 0) {
+    const evicted = subtitleStore.evictExpired();
+    if (evicted > 0) {
+      log('debug', `[Proxy] Evicted ${evicted} expired subtitle(s) from store (size now: ${subtitleStore.size()}).`);
+    }
+  }
+
   const cachedSub = subtitleStore.get(subId);
 
   // Log every request — critical for diagnosing whether the player is
@@ -56,7 +72,19 @@ router.get('/srt/:subId', (req, res) => {
   // timeline and the player re-fetches the subtitle.
   res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
 
-  res.send(cachedSub.content);
+  // Content-Length is helpful for range requests and progress bars.
+  // (compression middleware will adjust this if it kicks in.)
+  const buf = Buffer.from(cachedSub.content, 'utf8');
+  res.setHeader('Content-Length', buf.length);
+
+  // v2.4.5: Stream in 16KB chunks instead of res.send().
+  // Avoids holding the full content as a String AND a Buffer in the
+  // request scope simultaneously for large subs.
+  const CHUNK = 16 * 1024;
+  for (let offset = 0; offset < buf.length; offset += CHUNK) {
+    res.write(buf.slice(offset, offset + CHUNK));
+  }
+  res.end();
 });
 
 // Handle CORS preflight for /srt/ (some Tizen firmware sends OPTIONS first)

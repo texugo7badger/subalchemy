@@ -36,13 +36,23 @@ class AnimeToshoProvider extends BaseProvider {
   }
 
   /**
-   * Extract language from link text like "English [eng, ASS]" or "Portuguese[BR] [por, ASS]"
+   * Extract language from link text like "English [eng, ASS]",
+   * "Portuguese[BR] [por, ASS]" or "Portuguese[PT] [por, ASS]".
+   *
+   * v2.4.5: Distinguishes Brazilian (pob) vs European (ptg) Portuguese by
+   * looking for PT/PT-PT/Portugal markers before falling back to BR/generic.
+   *
+   * Also recognizes the Balkan pack and 5 additional languages.
+   *
    * @param {string} text - The link text
-   * @returns {string} ISO 639-2 language code (por, eng, spa, etc.)
+   * @returns {string} ISO 639-2/B language code (pob, ptg, eng, spa, etc.)
    */
   _extractLanguage(text) {
+    // Order matters: Portugal-specific check first, then Brazil, then generic.
+    if (/portuguese\s*\[\s*pt\s*\]|por-pt|pt-pt|portugal|european\s+portuguese/i.test(text)) return 'ptg';
+    if (/portuguese|brazilian|por-br|pt-br|\bpob\b|\bpb\b/i.test(text)) return 'pob';
+
     const patterns = [
-      { regex: /portuguese|brazilian|POR-BR/i, code: 'por' },
       { regex: /english|ENG/i, code: 'eng' },
       { regex: /spanish|latin.american|spa-la/i, code: 'spa' },
       { regex: /french|fre/i, code: 'fra' },
@@ -52,6 +62,21 @@ class AnimeToshoProvider extends BaseProvider {
       { regex: /russian|rus/i, code: 'rus' },
       { regex: /japanese|jpn/i, code: 'jpn' },
       { regex: /korean|kor/i, code: 'kor' },
+      { regex: /chinese.*traditional|zh-tw|zht/i, code: 'zht' },
+      { regex: /chinese|zho|zh-cn/i, code: 'zho' },
+      // Balkan pack
+      { regex: /serbian|\bsrp\b|\bsrb\b|scc/i, code: 'srp' },
+      { regex: /croatian|\bhrv\b|\bcro\b|scr/i, code: 'hrv' },
+      { regex: /bosnian|\bbos\b/i, code: 'bos' },
+      { regex: /slovenian|\bslv\b/i, code: 'slv' },
+      { regex: /bulgarian|\bbul\b/i, code: 'bul' },
+      { regex: /greek|\bell\b|\bgre\b/i, code: 'ell' },
+      // Additional 5
+      { regex: /turkish|\btur\b/i, code: 'tur' },
+      { regex: /polish|\bpol\b/i, code: 'pol' },
+      { regex: /dutch|\bnld\b|\bdut\b/i, code: 'nld' },
+      { regex: /hebrew|\bheb\b/i, code: 'heb' },
+      { regex: /vietnamese|\bvie\b/i, code: 'vie' },
     ];
     for (const { regex, code } of patterns) {
       if (regex.test(text)) return code;

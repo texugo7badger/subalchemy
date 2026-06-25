@@ -1,6 +1,6 @@
 # SubAlchemy
 
-**Version 2.4.4** · [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+**Version 2.4.5** · [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A Stremio addon that acts as a **universal SRT converter and subtitle aggregator**. It fetches subtitles from 5 sources in parallel — **OpenSubtitles (keyless), AnimeTosho (scraping), SubDL, SubSource, and Wyzie** — and converts every modern format (VTT, ASS/SSA, ZIP, .xz, .gz) into the classic SRT format on-the-fly.
 
@@ -12,13 +12,28 @@ Samsung Tizen 9 (and several other TV/streaming sticks) **does not support WebVT
 
 On top of that, cloud-hosted addons often get **`403 Forbidden`** from OpenSubtitles because their IPs are flagged as datacenters. SubAlchemy solves both issues by running inside a **Docker container with Cloudflare WARP** (routing OpenSubtitles traffic through a local SOCKS5 proxy at `127.0.0.1:40000`) and serving the final SRT with full CORS headers, `Content-Disposition`, and immutable cache — exactly what Samsung Tizen 9 needs to load the subtitle without "Failed to load external subtitle" errors.
 
+---
+
 ## Languages
 
-Pick up to 3 preferred languages in priority order (drag-free, click-to-add). The addon supports 12 languages out of the box:
+Pick up to 3 preferred languages in priority order (drag-free, click-to-add). The addon supports **23 languages** out of the box (v2.4.5):
 
-    🇧🇷 Portuguese (Brazil) · 🇬🇧 English · 🇪🇸 Spanish · 🇫🇷 French
-    🇩🇪 German · 🇮🇹 Italian · 🇯🇵 Japanese · 🇨🇳 Chinese (Simplified + Traditional)
-    🇷🇺 Russian · 🇸🇦 Arabic · 🇮🇳 Hindi · 🇰🇷 Korean
+### Portuguese — split into 3 variants
+- 🇧🇷 **Portuguese (Brazil)** — `pt-br` — explicit Brazilian variant
+- 🇵🇹 **Portuguese (Portugal)** — `pt-pt` — explicit European variant (new in v2.4.5)
+- 🇵🇹 **Portuguese** — `pt` — generic; used when the provider doesn't qualify the variant (defaults to Brazil-friendly fallback)
+
+### Major 12
+- 🇬🇧 English · 🇪🇸 Spanish · 🇫🇷 French · 🇩🇪 German · 🇮🇹 Italian · 🇯🇵 Japanese
+- 🇨🇳 Chinese (Simplified + Traditional) · 🇷🇺 Russian · 🇸🇦 Arabic · 🇮🇳 Hindi · 🇰🇷 Korean
+
+### Balkan pack (new in v2.4.5)
+- 🇷🇸 Serbian · 🇭🇷 Croatian · 🇧🇦 Bosnian · 🇸🇮 Slovenian · 🇧🇬 Bulgarian · 🇬🇷 Greek
+
+### Additional 5 (new in v2.4.5)
+- 🇹🇷 Turkish · 🇵🇱 Polish · 🇳🇱 Dutch · 🇮🇱 Hebrew · 🇻🇳 Vietnamese
+
+> **Tip:** If you want both Brazilian AND European Portuguese, add them as two separate priorities (e.g., `pt-br` first, `pt-pt` second). The handler will never auto-promote a PT-PT subtitle to satisfy a PT-BR request, so you get the variant you actually selected.
 
 ---
 

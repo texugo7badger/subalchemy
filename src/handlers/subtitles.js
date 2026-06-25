@@ -3,14 +3,16 @@ const { providerManager } = require('../providers');
 const { convertToSrt } = require('../converters');
 const { validateSrt } = require('../converters/validateSrt');
 const subtitleStore = require('../cache/SubtitleStore');
-const { getCinemetaTitle } = require('../meta/cinemeta');
+const { getCinemetaTitle, getCinemetaMeta } = require('../meta/cinemeta');
 const { getKitsuTitle } = require('../meta/kitsu');
 const { log } = require('../logger');
 const { OS_DIRECT_URL_RE } = require('../constants');
-const { normalizeLanguage, getLanguageName } = require('../utils/subtitleUtils');
+const { normalizeLanguage, getLanguageName, isBrazilianPortuguese } = require('../utils/subtitleUtils');
 const crypto = require('crypto');
 
 const MAX_PER_LANG = 30;
+const TOP_N_VALID = 3;          // v2.4.5: return up to 3 valid candidates
+const SYNC_REJECT_OFFSET_MS = 60000;  // reject subs whose first cue starts >60s
 
 /**
  * Detect whether a subtitle's release name / file name matches the
@@ -29,10 +31,6 @@ function episodeMatchScore(releaseName, fileName, season, episode) {
   if (season == null || episode == null) return 1; // no episode requested — neutral
   const hay = `${releaseName || ''} ${fileName || ''}`.toLowerCase();
 
-  // Common episode markers (case-insensitive):
-  //   S01E11, s1e11, 1x11         — standard TV naming
-  //   EP11, ep.11, episode 11     — explicit episode label
-  //   " - 11 " or " - 11["        — fansub naming (e.g. "[Erai-raws] Title - 11 [1080p]")
   const eStr = String(episode);
   const eStrPadded = String(episode).padStart(2, '0');
 
@@ -52,25 +50,21 @@ function episodeMatchScore(releaseName, fileName, season, episode) {
   }
 
   // Try to detect any episode marker that DOESN'T match — that's a miss.
-  // We use the standard TV pattern + fansub dash pattern for detection.
   const anyEpisodeMarker = /\bs\d{1,2}\s*e\d{1,3}\b|\b\d+x\d{1,3}\b|\bep\.?\s*\d{1,3}\b|\s-\s\d{1,3}\b/i;
   const m = hay.match(anyEpisodeMarker);
   if (m) {
-    // Found a marker — does it match our target episode?
     const marker = m[0];
     if (!exactPatterns.some(re => re.test(marker))) {
       return 0; // different episode
     }
   }
 
-  // No marker at all — might be a batch, movie, or episode-less sub. Neutral.
   return 1;
 }
 
 /**
  * Sort candidates by episode match score (best first), preserving
- * language-priority order. Within the same language, candidates with
- * score 2 (exact match) come first, then score 1 (neutral), then 0 (miss).
+ * language-priority order.
  *
  * @param {Array} candidates - Already built in language-priority order
  * @param {number|null} season
@@ -80,8 +74,6 @@ function episodeMatchScore(releaseName, fileName, season, episode) {
 function rankByEpisode(candidates, season, episode) {
   if (season == null || episode == null) return candidates;
 
-  // Group by language, sort within each group, then flatten back.
-  // We need to preserve the language-priority order from `candidates`.
   const langGroups = new Map();
   for (const sub of candidates) {
     const lang = normalizeLanguage(sub.language) || 'eng';
@@ -94,7 +86,7 @@ function rankByEpisode(candidates, season, episode) {
     group.sort((a, b) => {
       const sa = episodeMatchScore(a.releaseName, a.fileName, season, episode);
       const sb = episodeMatchScore(b.releaseName, b.fileName, season, episode);
-      return sb - sa; // higher score first
+      return sb - sa;
     });
     out.push(...group);
   }
@@ -102,20 +94,54 @@ function rankByEpisode(candidates, season, episode) {
 }
 
 /**
+ * v2.4.5: Score a valid subtitle by sync quality.
+ *
+ * Combines:
+ *   - episodeMatchScore (2 = exact, 1 = neutral, 0 = wrong ep)
+ *   - first-cue offset (lower absolute value = better sync; a sub whose
+ *     first cue starts at 0s matches most streams, while one starting at
+ *     30s suggests a release with extended recap the stream may not have)
+ *   - duration ratio vs. expected runtime (when available from Cinemeta);
+ *     subs much shorter than the runtime are likely cut/cropped releases
+ *
+ * Returns a numeric score where higher = better sync.
+ *
+ * @param {object} sub
+ * @param {object} validation - From validateSrt()
+ * @param {number|null} expectedRuntimeSec - From Cinemeta (null if unknown)
+ * @param {number|null} season
+ * @param {number|null} episode
+ * @returns {number}
+ */
+function syncScore(sub, validation, expectedRuntimeSec, season, episode) {
+  const epScore = episodeMatchScore(sub.releaseName, sub.fileName, season, episode);
+  // Offset penalty: 0s = perfect, 60s = 0 (rejected separately, but score reflects)
+  const offsetSec = validation.firstTimestampMs / 1000;
+  const offsetScore = Math.max(0, 60 - Math.abs(offsetSec)) / 60; // 0..1
+  // Duration ratio: 1.0 = perfect, 0.5 = half-length (cropped)
+  let durScore = 1;
+  if (expectedRuntimeSec && expectedRuntimeSec > 0) {
+    const ratio = validation.durationMs / 1000 / expectedRuntimeSec;
+    // Best at ratio ~1.0, penalize both directions
+    durScore = Math.max(0, 1 - Math.abs(1 - ratio));
+  }
+  // Weighted: episode match dominates, then offset, then duration
+  return epScore * 100 + offsetScore * 30 + durScore * 20;
+}
+
+/**
  * Handle a Stremio /subtitles request.
  *
- * Universal flow that respects up to 3 user-preferred languages (in the
- * order they were selected on /configure) and falls back gracefully:
- *
- *   1. Try each user language in priority order. Stop at the first one
- *      that has matching subtitles.
- *   2. If none of the user languages returned results, fall back to
- *      English (marked as "Fallback" in the UI label).
- *   3. If English is also missing, return an empty array (no placeholder).
- *
- * For the chosen language, candidates are ranked by episode-match score
- * (so S01E11 subs come before batch/wrong-episode subs), and iterated
- * until one converts to a valid SRT (passes `validateSrt()`).
+ * v2.4.5 flow changes:
+ *   - Returns up to 3 valid candidates (one per preferred source when
+ *     possible) so the user can switch in real-time if one is desynced.
+ *   - Each candidate is labeled with platform + first-cue offset:
+ *     "SubAlchemy [Portuguese (Brazil)] · OpenSubtitles · off +2s"
+ *   - Subs whose first cue starts >60s are rejected (likely wrong release).
+ *   - Sync scoring ranks the 3 candidates so the best appears first in
+ *     Stremio's list (which the user usually picks by default).
+ *   - PT-BR vs PT-PT: respects user variant explicitly. 'pob' matches
+ *     'pob' + 'por' (generic), but never auto-promotes 'ptg'.
  */
 async function handleSubtitlesRequest(args, config, baseUrl) {
   const { id, type } = args;
@@ -129,14 +155,17 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   log('info', `[Handler] User-Agent: ${userAgent.substring(0, 80)}${userAgent.length > 80 ? '...' : ''}`);
   log('info', `[Handler] isStremioClient: ${isStremioClient(userAgent)}`);
 
-  // --- Resolve the search query (anime title, movie/series title) ---------
+  // --- Resolve search query + runtime (Cinemeta now returns both) --------
   let searchQuery = null;
+  let expectedRuntimeSec = null;
   if (parsed.kitsuId) {
     searchQuery = await getKitsuTitle(parsed.kitsuId);
     log('info', `[Handler] Kitsu Anime detected. Title: ${searchQuery}`);
   } else if (parsed.imdbId) {
-    searchQuery = await getCinemetaTitle(parsed.imdbId, type);
-    log('info', `[Handler] IMDB ID: ${parsed.imdbId}. Cinemeta Title: ${searchQuery}`);
+    const meta = await getCinemetaMeta(parsed.imdbId, type);
+    searchQuery = meta?.name || null;
+    expectedRuntimeSec = meta?.runtime || null;
+    log('info', `[Handler] IMDB ID: ${parsed.imdbId}. Cinemeta Title: ${searchQuery}${expectedRuntimeSec ? `, runtime: ${expectedRuntimeSec}min` : ''}`);
   }
 
   // --- Resolve requested languages (up to 3, in priority order) -----------
@@ -180,13 +209,36 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   }
 
   // --- Build the ordered candidate list, respecting user priority ---------
+  // v2.4.5: Portuguese variant handling. When the user requested 'pob'
+  // (Brazil), we accept 'pob' first, then 'por' (generic) as fallback.
+  // We never auto-promote 'ptg' (Portugal) to satisfy a 'pob' request.
+  // When the user requested 'ptg', we accept only 'ptg'.
+  // When the user requested 'por' (generic), we accept all three variants.
   const candidates = [];
   let chosenLang = null;
   let isFallback = false;
 
+  function langMatches(subLang, requestedLang) {
+    const subNorm = normalizeLanguage(subLang);
+    if (requestedLang === 'pob') {
+      // Brazil: accept explicit pob AND generic por (most providers
+      // default to pob under 'por'). Reject ptg (Portugal).
+      return subNorm === 'pob' || subNorm === 'por';
+    }
+    if (requestedLang === 'ptg') {
+      // Portugal: strict — only explicit ptg.
+      return subNorm === 'ptg';
+    }
+    if (requestedLang === 'por') {
+      // Generic: accept any Portuguese variant.
+      return subNorm === 'pob' || subNorm === 'ptg' || subNorm === 'por';
+    }
+    return subNorm === requestedLang;
+  }
+
   for (const lang of requestedLangs) {
     const matches = subtitles
-      .filter(sub => normalizeLanguage(sub.language) === lang)
+      .filter(sub => langMatches(sub.language, lang))
       .slice(0, MAX_PER_LANG);
     if (matches.length > 0) {
       candidates.push(...matches);
@@ -216,12 +268,9 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
   }
 
   // --- Rank candidates by episode-match score -----------------------------
-  // When the user requested a specific episode, sort so that exact-episode
-  // matches come first, then neutral (no marker), then wrong-episode.
   const ranked = rankByEpisode(candidates, parsed.season, parsed.episode);
   if (parsed.season != null && parsed.episode != null) {
     log('info', `[Handler] Episode context: S${parsed.season}E${parsed.episode}. Ranking ${ranked.length} candidate(s) by episode-match score.`);
-    // Log top 5 candidates with their score for calibration
     ranked.slice(0, 5).forEach((c, i) => {
       const score = episodeMatchScore(c.releaseName, c.fileName, parsed.season, parsed.episode);
       const scoreLabel = score === 2 ? 'EXACT' : score === 1 ? 'neutral' : 'WRONG-EP';
@@ -229,26 +278,29 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
     });
   }
 
-  // --- Iterate candidates: convert + validate each until one works --------
-  for (let i = 0; i < ranked.length; i++) {
+  // --- v2.4.5: Collect up to TOP_N_VALID candidates, validating each ------
+  // Returns multiple entries so the user can switch in Stremio's subtitle
+  // picker if the top pick is desynced. Each is labeled with platform +
+  // first-cue offset for visual sync calibration.
+  const validResults = [];
+
+  for (let i = 0; i < ranked.length && validResults.length < TOP_N_VALID; i++) {
     const sub = ranked[i];
     const langName = getLanguageName(normalizeLanguage(sub.language));
-    const subName = `SubAlchemy [${langName}]${isFallback ? ' (Fallback)' : ''}`;
 
     try {
-      let finalUrl = sub.url;
-
       // OpenSubtitles direct URL + official Stremio desktop client:
-      // bypass conversion, let Stremio fetch the .gz/.srt directly via the
-      // local 127.0.0.1:11470 bridge.
-      if (OS_DIRECT_URL_RE.test(sub.url) && isStremioClient(userAgent)) {
+      // bypass conversion. Only used for the FIRST candidate (otherwise
+      // we'd be sending multiple direct OS URLs which Stremio doesn't
+      // list meaningfully).
+      if (OS_DIRECT_URL_RE.test(sub.url) && isStremioClient(userAgent) && validResults.length === 0) {
         log('info', `[Handler] Returning OS direct URL to Stremio desktop (candidate ${i + 1}/${ranked.length}, ${sub.source}, ${langName}). URL: ${sub.url.substring(0, 100)}`);
         return {
           subtitles: [{
             id: sub.id,
             url: `http://127.0.0.1:11470/subtitles.srt?from=${encodeURIComponent(sub.url)}`,
             lang: sub.language,
-            name: subName
+            name: `SubAlchemy [${langName}] · ${sub.source}${isFallback ? ' · Fallback' : ''}`
           }]
         };
       }
@@ -268,37 +320,61 @@ async function handleSubtitlesRequest(args, config, baseUrl) {
         continue;
       }
 
+      // v2.4.5: Reject subs whose first cue starts >60s — likely a
+      // release with extended recap the stream doesn't have.
+      if (validation.firstTimestampMs > SYNC_REJECT_OFFSET_MS) {
+        log('warn', `[Handler] Candidate ${i + 1} (${sub.source}) rejected — first cue at ${Math.round(validation.firstTimestampMs / 1000)}s (sync drift >${SYNC_REJECT_OFFSET_MS / 1000}s). Trying next.`);
+        continue;
+      }
+
       const subId = crypto.createHash('md5').update(sub.url).digest('hex').slice(0, 20);
       subtitleStore.set(subId, { content: srtContent, lang: sub.language });
-      finalUrl = `${baseUrl}/srt/${subId}.srt`;
+      const finalUrl = `${baseUrl}/srt/${subId}.srt`;
 
-      // Log sync-relevant info: first cue offset, last cue end. If the first
-      // cue starts > 30s into the video, the subtitle is likely for a
-      // release that includes an opening the user's stream doesn't have
-      // (or vice versa). We still serve it but log a WARN so we can diagnose
-      // "subtitle doesn't appear" reports.
       const firstOffsetSec = Math.round(validation.firstTimestampMs / 1000);
       const totalDurationSec = Math.round(validation.durationMs / 1000);
-      const syncWarning = firstOffsetSec > 30 ? ' ⚠️ first cue starts at ' + firstOffsetSec + 's — may be desynced if stream cuts opening' : '';
-      log('info', `[Handler] ✅ Returning converted SRT to Stremio (candidate ${i + 1}/${ranked.length}, ${sub.source}, ${langName}, ${validation.cuesCount} cues, ${totalDurationSec}s duration, first cue @ ${firstOffsetSec}s${syncWarning})`);
-      log('info', `[Handler]    release="${(sub.releaseName || '').substring(0, 80)}" file="${(sub.fileName || '').substring(0, 80)}"`);
-      log('info', `[Handler]    served at ${finalUrl}`);
-      return {
-        subtitles: [{
-          id: sub.id,
-          url: finalUrl,
-          lang: sub.language,
-          name: subName
-        }]
-      };
+      const offsetLabel = firstOffsetSec === 0 ? 'off 0s' : `off ${firstOffsetSec > 0 ? '+' : ''}${firstOffsetSec}s`;
+      const subName = `SubAlchemy [${langName}] · ${sub.source} · ${offsetLabel}${isFallback ? ' · Fallback' : ''}`;
+
+      log('info', `[Handler] ✅ Valid #${validResults.length + 1} (candidate ${i + 1}/${ranked.length}, ${sub.source}, ${langName}, ${validation.cuesCount} cues, ${totalDurationSec}s, first @ ${firstOffsetSec}s) — release="${(sub.releaseName || '').substring(0, 80)}"`);
+
+      validResults.push({
+        sub,
+        subId,
+        finalUrl,
+        subName,
+        langName,
+        validation,
+        episodeScore: episodeMatchScore(sub.releaseName, sub.fileName, parsed.season, parsed.episode),
+      });
     } catch (e) {
       log('warn', `[Handler] Candidate ${i + 1} (${sub.source}) threw: ${e.message} — trying next.`);
       continue;
     }
   }
 
-  log('error', `[Handler] All ${ranked.length} candidates failed conversion or validation. Returning empty.`);
-  return { subtitles: [] };
+  if (validResults.length === 0) {
+    log('error', `[Handler] All ${ranked.length} candidates failed conversion or validation. Returning empty.`);
+    return { subtitles: [] };
+  }
+
+  // --- v2.4.5: Sort the valid candidates by sync score (best first) ------
+  validResults.sort((a, b) => {
+    const sa = syncScore(a.sub, a.validation, expectedRuntimeSec, parsed.season, parsed.episode);
+    const sb = syncScore(b.sub, b.validation, expectedRuntimeSec, parsed.season, parsed.episode);
+    return sb - sa;
+  });
+
+  log('info', `[Handler] Returning ${validResults.length} synced candidate(s) to Stremio. Top: ${validResults[0].sub.source} @ off ${Math.round(validResults[0].validation.firstTimestampMs / 1000)}s.`);
+
+  return {
+    subtitles: validResults.map(r => ({
+      id: r.sub.id,
+      url: r.finalUrl,
+      lang: r.sub.language,
+      name: r.subName,
+    }))
+  };
 }
 
 module.exports = { handleSubtitlesRequest };

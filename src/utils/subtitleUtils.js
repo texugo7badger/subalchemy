@@ -2,30 +2,51 @@
  * Universal subtitle language utilities.
  *
  * Single source of truth for language normalization across the entire
- * SubAlchemy provider stack. Supports the same 12 languages the
- * /configure page exposes: Portuguese, English, Spanish, French, German,
- * Italian, Japanese, Chinese (Simplified + Traditional), Russian, Arabic,
- * Hindi, Korean.
+ * SubAlchemy provider stack. Supports 23 languages (v2.4.5):
+ *   - Portuguese: Brazil (pob), Portugal (ptg), generic (por)
+ *   - 12 originals: English, Spanish, French, German, Italian, Japanese,
+ *     Chinese (Simplified + Traditional), Russian, Arabic, Hindi, Korean
+ *   - Balkan pack: Serbian, Croatian, Bosnian, Slovenian, Bulgarian, Greek
+ *   - Additional 5: Turkish, Polish, Dutch, Hebrew, Vietnamese
  *
  * Used by:
- *   - src/handlers/subtitles.js    (filtering + fallback)
+ *   - src/handlers/subtitles.js    (filtering + fallback + sync scoring)
  *   - src/languages.js             (re-exports for backward compat)
  *   - src/providers/AnimeToshoProvider.js
  *   - src/providers/WyzieProvider.js
  *
- * Output codes follow ISO 639-2/B (por, eng, spa, fra, deu, ita, jpn, zho,
- * zht, rus, ara, hin, kor) so they round-trip cleanly with OpenSubtitles,
- * SubDL, Wyzie and SubSource responses.
+ * Output codes follow ISO 639-2/B so they round-trip cleanly with
+ * OpenSubtitles, SubDL, Wyzie and SubSource responses.
+ *
+ * Portuguese split (v2.4.5):
+ *   - 'pob' → Portuguese (Brazil)        — explicit Brazilian variant
+ *   - 'ptg' → Portuguese (Portugal)      — explicit European variant
+ *   - 'por' → Portuguese (generic)       — provider didn't qualify the
+ *                                          variant; labeled as just
+ *                                          "Portuguese". The handler
+ *                                          treats 'por' as Brazil-friendly
+ *                                          fallback (most providers default
+ *                                          to pob under 'por').
  */
 
 // ---- Mapping table ---------------------------------------------------------
 // Keys are case-insensitive aliases the user or providers may send. Values
 // are the canonical ISO 639-2/B codes we use everywhere internally.
 const LANG_MAP = {
-  // Portuguese (Brazil + Portugal)
-  'pt-br': 'por', 'ptbr': 'por', 'portuguese-brazil': 'por', 'pb': 'por',
-  'pt': 'por', 'pt-br': 'por', 'por': 'por', 'por-br': 'por', 'por_br': 'por',
-  'portuguese': 'por', 'pob': 'por', 'brazilian': 'por', 'brazilian_cr': 'por',
+  // Portuguese (Brazil) — explicit variant
+  'pt-br': 'pob', 'ptbr': 'pob', 'portuguese-brazil': 'pob', 'pb': 'pob',
+  'pob': 'pob', 'por-br': 'pob', 'por_br': 'pob',
+  'brazilian': 'pob', 'brazilian_cr': 'pob', 'portuguesebr': 'pob',
+  'portuguese-br': 'pob', 'pt_br': 'pob',
+
+  // Portuguese (Portugal) — explicit European variant
+  'pt-pt': 'ptg', 'ptpt': 'ptg', 'portuguese-portugal': 'ptg',
+  'ptg': 'ptg', 'por-pt': 'ptg', 'por_pt': 'ptg',
+  'european portuguese': 'ptg', 'portuguese-pt': 'ptg', 'pt_pt': 'ptg',
+  'portugal': 'ptg',
+
+  // Portuguese (generic — provider didn't qualify the variant)
+  'pt': 'por', 'por': 'por', 'portuguese': 'por',
 
   // English
   'en': 'eng', 'eng': 'eng', 'english': 'eng',
@@ -61,12 +82,40 @@ const LANG_MAP = {
 
   // Korean
   'ko': 'kor', 'kor': 'kor', 'korean': 'kor',
+
+  // ---- Balkan pack (v2.4.5) ----
+  // Serbian
+  'sr': 'srp', 'srp': 'srp', 'scc': 'srp', 'srb': 'srp', 'serbian': 'srp',
+  // Croatian
+  'hr': 'hrv', 'hrv': 'hrv', 'scr': 'hrv', 'cro': 'hrv', 'croatian': 'hrv',
+  // Bosnian
+  'bs': 'bos', 'bos': 'bos', 'bns': 'bos', 'bosnian': 'bos',
+  // Slovenian
+  'sl': 'slv', 'slv': 'slv', 'slo': 'slv', 'slovenian': 'slv',
+  // Bulgarian
+  'bg': 'bul', 'bul': 'bul', 'blg': 'bul', 'bulgarian': 'bul',
+  // Greek
+  'el': 'ell', 'ell': 'ell', 'gr': 'ell', 'gre': 'ell', 'greek': 'ell',
+
+  // ---- Additional 5 languages (v2.4.5) ----
+  // Turkish
+  'tr': 'tur', 'tur': 'tur', 'turkish': 'tur',
+  // Polish
+  'pl': 'pol', 'pol': 'pol', 'polish': 'pol',
+  // Dutch
+  'nl': 'nld', 'nld': 'nld', 'dut': 'nld', 'dutch': 'nld',
+  // Hebrew
+  'he': 'heb', 'heb': 'heb', 'iw': 'heb', 'hebrew': 'heb',
+  // Vietnamese
+  'vi': 'vie', 'vie': 'vie', 'vietnamese': 'vie',
 };
 
 // Human-readable display names — used by the handler to build the Stremio
 // subtitle label, e.g. "SubAlchemy [Portuguese (Brazil)]".
 const LANG_NAMES = {
-  'por': 'Portuguese (Brazil)',
+  'pob': 'Portuguese (Brazil)',
+  'ptg': 'Portuguese (Portugal)',
+  'por': 'Portuguese',
   'eng': 'English',
   'spa': 'Spanish',
   'fra': 'French',
@@ -79,16 +128,31 @@ const LANG_NAMES = {
   'ara': 'Arabic',
   'hin': 'Hindi',
   'kor': 'Korean',
+
+  // Balkan pack
+  'srp': 'Serbian',
+  'hrv': 'Croatian',
+  'bos': 'Bosnian',
+  'slv': 'Slovenian',
+  'bul': 'Bulgarian',
+  'ell': 'Greek',
+
+  // Additional 5
+  'tur': 'Turkish',
+  'pol': 'Polish',
+  'nld': 'Dutch',
+  'heb': 'Hebrew',
+  'vie': 'Vietnamese',
 };
 
 /**
  * Normalize any language code, alias, or human name into a canonical
  * ISO 639-2/B code. Handles common fan-sub variants like "Brazilian_CR"
- * (Erai-raws) and "POR-BR" (Ironclad) that AnimeTosho serves.
+ * (Erai-raws), "POR-BR" (Ironclad) and "PT-PT" (Portugal fansubs).
  *
  * @param {string} langCode - Raw language string from config or provider.
- * @returns {string|null} Canonical code (e.g. 'por', 'eng') or null if
- *                        the input is empty/unrecognized.
+ * @returns {string|null} Canonical code (e.g. 'pob', 'ptg', 'eng') or null
+ *                        if the input is empty/unrecognized.
  */
 function normalizeLanguage(langCode) {
   if (!langCode) return null;
@@ -99,10 +163,28 @@ function normalizeLanguage(langCode) {
 
   // Substring fallbacks for fan-sub quirks like "Portuguese[BR] [por, ASS]"
   // or "Brazilian_CR" — providers may pass raw link text.
+  // ORDER MATTERS: check more specific Portugal first, then Brazil, then
+  // generic Portuguese — otherwise "Portuguese (Brazil)" matches the
+  // generic branch first and we'd lose the variant.
+  if (normalized.includes('portugal') ||
+      normalized.includes('european portuguese') ||
+      normalized.includes('pt-pt') ||
+      normalized.includes('ptpt') ||
+      normalized.includes('por-pt') ||
+      normalized.includes('por_pt')) return 'ptg';
+
   if (normalized.includes('brazilian') ||
+      normalized.includes('pt-br') ||
+      normalized.includes('ptbr') ||
+      normalized.includes('pt_br') ||
       normalized.includes('por-br') ||
       normalized.includes('por_br') ||
-      normalized.includes('portuguese')) return 'por';
+      normalized.includes('pob') ||
+      normalized.includes('portuguesebr') ||
+      normalized.includes('portuguese-br')) return 'pob';
+
+  if (normalized.includes('portuguese') ||
+      normalized.includes('por')) return 'por';
 
   if (normalized.includes('english')) return 'eng';
 
@@ -119,6 +201,21 @@ function normalizeLanguage(langCode) {
   if (normalized.includes('arabic')) return 'ara';
   if (normalized.includes('hindi')) return 'hin';
   if (normalized.includes('korean')) return 'kor';
+
+  // Balkan substring fallbacks
+  if (normalized.includes('serbian') || normalized.includes('srb') || normalized.includes('srp')) return 'srp';
+  if (normalized.includes('croatian') || normalized.includes('hrv') || normalized.includes('scr')) return 'hrv';
+  if (normalized.includes('bosnian') || normalized.includes('bos')) return 'bos';
+  if (normalized.includes('slovenian') || normalized.includes('slv')) return 'slv';
+  if (normalized.includes('bulgarian') || normalized.includes('bul')) return 'bul';
+  if (normalized.includes('greek') || normalized.includes('ell')) return 'ell';
+
+  // Additional 5
+  if (normalized.includes('turkish') || normalized.includes('tur')) return 'tur';
+  if (normalized.includes('polish') || normalized.includes('pol')) return 'pol';
+  if (normalized.includes('dutch') || normalized.includes('nld')) return 'nld';
+  if (normalized.includes('hebrew') || normalized.includes('heb')) return 'heb';
+  if (normalized.includes('vietnamese') || normalized.includes('vie')) return 'vie';
 
   // Unknown — return lowercased input so callers can still group/compare
   // (e.g. an exotic language we don't have a display name for).
@@ -147,13 +244,27 @@ function getLanguageName(code) {
 }
 
 /**
- * Convenience predicate — true if the code normalizes to Portuguese.
- * Kept for backward compatibility with existing call sites.
+ * Convenience predicate — true if the code normalizes to any Portuguese
+ * variant (Brazil, Portugal, or generic). Kept for backward compatibility
+ * with existing call sites.
  * @param {string} langCode
  * @returns {boolean}
  */
 function isPortuguese(langCode) {
-  return normalizeLanguage(langCode) === 'por';
+  const norm = normalizeLanguage(langCode);
+  return norm === 'pob' || norm === 'ptg' || norm === 'por';
+}
+
+/**
+ * Convenience predicate — true if the code is specifically Brazilian
+ * Portuguese (pob) or generic Portuguese (por, which we treat as
+ * Brazilian-friendly since most providers default to pob under 'por').
+ * @param {string} langCode
+ * @returns {boolean}
+ */
+function isBrazilianPortuguese(langCode) {
+  const norm = normalizeLanguage(langCode);
+  return norm === 'pob' || norm === 'por';
 }
 
 /**
@@ -193,6 +304,7 @@ module.exports = {
   normalizeLang,
   getLanguageName,
   isPortuguese,
+  isBrazilianPortuguese,
   generatePlaceholder,
   formatSrtTime,
   LANG_MAP,

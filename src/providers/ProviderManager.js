@@ -1,7 +1,13 @@
 const { log } = require('../logger');
 const InflightCache = require('../cache/InflightCache');
+const { PROVIDER_DEADLINE_MS } = require('../constants');
 
-const DEFAULT_DEADLINE_MS = parseInt(process.env.PROVIDER_DEADLINE_MS, 10) || 10000;
+/**
+ * v2.4.5: Fixed inconsistency where constants.js defined PROVIDER_DEADLINE_MS=8000
+ * but this file fell back to process.env || 10000, ignoring the constants file.
+ * Now imports from constants.js (still overridable via env var for ops).
+ */
+const DEFAULT_DEADLINE_MS = parseInt(process.env.PROVIDER_DEADLINE_MS, 10) || PROVIDER_DEADLINE_MS;
 
 /**
  * Manages all subtitle providers: registration, parallel search, and deduplication.
@@ -34,7 +40,6 @@ class ProviderManager {
   }
 
   _dedupeKey(query) {
-    // Create a stable cache key from the query
     return `${query.imdbId || ''}|${query.searchQuery || ''}|${query.season || ''}|${query.episode || ''}|${(query.languages || []).join(',')}`;
   }
 
@@ -45,13 +50,12 @@ class ProviderManager {
       return { subtitles: [] };
     }
 
-    log('info', `[ProviderManager] Searching ${providers.length} providers...`);
+    log('info', `[ProviderManager] Searching ${providers.length} providers (deadline: ${DEFAULT_DEADLINE_MS}ms)...`);
 
     const results = await Promise.all(
       providers.map(p => this._raceWithDeadline(p, query))
     );
 
-    // Aggregate all subtitle results
     const allSubtitles = [];
     for (const r of results) {
       if (r.subtitles && r.subtitles.length > 0) {
@@ -110,7 +114,6 @@ class ProviderManager {
   _dedupe(subtitles) {
     const seen = new Set();
     return subtitles.filter(sub => {
-      // Build a deduplication key from semantic fields
       const key = `${sub.source}|${sub.language}|${sub.format}|${sub.releaseName}`;
       if (seen.has(key)) return false;
       seen.add(key);
