@@ -1,23 +1,11 @@
 /**
- * v2.4.5: Language selector component for the /configure page.
+ * Language selector component for the /configure page.
  *
- * Now reflects the expanded catalog of 23 languages organized into 4
- * visible categories so users can discover the new Balkan pack and the
- * 5 additional languages without having to type a search query.
+ * Renders the static shell: label, tags container for selected languages,
+ * search input, and the dynamic list container. The actual language list
+ * and click-to-add logic live in /assets/app.js (so it runs client-side).
  *
- * The actual language list + click-to-add logic lives in
- * /assets/app.js (so it can run client-side). This component only
- * renders the static shell: label, category chips, search input,
- * and the dynamic list container.
- *
- * Categories shown as filter chips:
- *   - Portuguese variants (3): pt-br, pt-pt, pt
- *   - Major (12): en, es, fr, de, it, ja, zh, zh-tw, ru, ar, hi, ko
- *   - Balkan pack (6): sr, hr, bs, sl, bg, el
- *   - Additional (5): tr, pl, nl, he, vi
- *
- * The chips set window.__langFilter so app.js can filter the list
- * accordingly. Clicking "All" clears the filter.
+ * Used by: src/ui/configurePage.js
  */
 function languageSelector() {
   return `
