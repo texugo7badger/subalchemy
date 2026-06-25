@@ -22,34 +22,11 @@
 function languageSelector() {
   return `
 <div class="form-group">
-    <label>Preferred Languages (Max 3) <span class="lang-count">— 23 available</span></label>
-    <div class="lang-categories" id="langCategories">
-        <button type="button" class="lang-cat-chip active" data-cat="all">All (23)</button>
-        <button type="button" class="lang-cat-chip" data-cat="portuguese">Portuguese (3)</button>
-        <button type="button" class="lang-cat-chip" data-cat="major">Major (12)</button>
-        <button type="button" class="lang-cat-chip" data-cat="balkan">Balkan pack (6)</button>
-        <button type="button" class="lang-cat-chip" data-cat="additional">Additional (5)</button>
-    </div>
+    <label>Preferred Languages (Max 3)</label>
     <div class="tags-container" id="selectedLangs"></div>
     <input type="text" id="langSearch" placeholder="Search languages..." oninput="filterLangs()">
     <div id="langList"></div>
 </div>
-<script>
-// Category filter — read by filterLangs() in app.js
-window.__langFilter = 'all';
-document.addEventListener('DOMContentLoaded', function () {
-    var chips = document.querySelectorAll('.lang-cat-chip');
-    chips.forEach(function (chip) {
-        chip.addEventListener('click', function () {
-            chips.forEach(function (c) { c.classList.remove('active'); });
-            chip.classList.add('active');
-            window.__langFilter = chip.getAttribute('data-cat');
-            // Re-run the filter so the list updates immediately
-            if (typeof filterLangs === 'function') filterLangs();
-        });
-    });
-});
-</script>
   `;
 }
 module.exports = languageSelector;
