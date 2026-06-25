@@ -47,17 +47,6 @@ const langNames = {
   'vi': 'Vietnamese'
 };
 
-// v2.4.5: category mapping — used by the filter chips in languageSelector.js
-// to narrow the visible list without forcing the user to type a search.
-const langCategories = {
-    'pt-br': 'portuguese', 'pt-pt': 'portuguese', 'pt': 'portuguese',
-    'en': 'major', 'es': 'major', 'fr': 'major', 'de': 'major', 'it': 'major',
-    'ja': 'major', 'zh': 'major', 'zh-tw': 'major', 'ru': 'major', 'ar': 'major',
-    'hi': 'major', 'ko': 'major',
-    'sr': 'balkan', 'hr': 'balkan', 'bs': 'balkan', 'sl': 'balkan', 'bg': 'balkan', 'el': 'balkan',
-    'tr': 'additional', 'pl': 'additional', 'nl': 'additional', 'he': 'additional', 'vi': 'additional',
-};
-
 let selectedLangs = ['en'];
 
 function renderTags() {
@@ -78,18 +67,9 @@ function removeLang(lang) {
 
 function filterLangs() {
     const search = document.getElementById('langSearch').value.toLowerCase();
-    const activeCat = window.__langFilter || 'all';
     const list = document.getElementById('langList');
     list.innerHTML = '';
-    const filtered = availableLangs.filter(l => {
-        // Search match
-        if (!langNames[l].toLowerCase().includes(search)) return false;
-        // Already selected
-        if (selectedLangs.includes(l)) return false;
-        // Category filter (v2.4.5)
-        if (activeCat !== 'all' && langCategories[l] !== activeCat) return false;
-        return true;
-    });
+    const filtered = availableLangs.filter(l => langNames[l].toLowerCase().includes(search) && !selectedLangs.includes(l));
     if (filtered.length > 0) {
         list.style.display = 'block';
         filtered.forEach(l => {
@@ -231,9 +211,6 @@ async function restoreConfig() {
     }
 }
 
-// Initialize on load — render tags, restore saved config, and pre-populate
-// the language list so users see all 23 options without having to type.
+// Initialize on load — restore first (async), then render tags.
 renderTags();
 restoreConfig();
-// Show the full language list on boot (filtered by active category chip).
-filterLangs();
